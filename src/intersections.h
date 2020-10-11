@@ -134,8 +134,6 @@ __host__ __device__ float sphereIntersectionTest(Geom sphere,
 {
 	float radius = 0.5f;
 
-
-
 	glm::vec3 ro = multiplyMV(sphere.inverseTransform, glm::vec4(r.origin, 1.0f));
 	glm::vec3 rd = glm::normalize(multiplyMV(sphere.inverseTransform, glm::vec4(r.direction, 0.0f)));
 

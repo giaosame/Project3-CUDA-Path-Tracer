@@ -42,9 +42,9 @@ EMITTANCE   0
 MATERIAL 4
 RGB         0.9 0.9 1
 SPECEX      0.96
-SPECRGB     0.98 0.98 0.98
+SPECRGB     0.98 0.98 1
 REFL        1
-REFR        1.3
+REFR        1.5
 REFRIOR     0
 EMITTANCE   0
 
@@ -58,11 +58,11 @@ REFR        0
 REFRIOR     0
 EMITTANCE   0
 
-// glass 
+// glass blue
 MATERIAL 6
-RGB         0.5 0.8 1
+RGB         0.45 0.6 1
 SPECEX      0.96
-SPECRGB     0.6 0.9 1
+SPECRGB     0.45 0.6 1
 REFL        1
 REFR        2.417
 REFRIOR     0
@@ -144,7 +144,7 @@ SCALE       .01 10 10
 OBJECT 6
 sphere
 MATERIAL 4
-TRANS       -1 4 3
+TRANS       -1 4 3.6
 ROTAT       0 0 0
 SCALE       3 3 3
 
@@ -152,16 +152,16 @@ SCALE       3 3 3
 OBJECT 7
 cube
 MATERIAL 5
-TRANS       -2 2 -1.5
+TRANS       -2 4 -1.5
 ROTAT       45 60 0
-SCALE       3 3 3
+SCALE       3.6 3.6 3.6
 
 // diamond
 OBJECT 8
 mesh
 ../scenes/diamond/scene.gltf
 MATERIAL 6
-TRANS       1 6 3
+TRANS       1 7 3
 ROTAT       0 0 0
 SCALE       1.2 1.2 1.2
 

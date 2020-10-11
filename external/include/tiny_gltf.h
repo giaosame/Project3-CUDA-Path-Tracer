@@ -985,7 +985,8 @@ struct Primitive {
   int indices;   // The index of the accessor that contains the indices.
   int mode;      // one of TINYGLTF_MODE_***
   std::vector<std::map<std::string, int> > targets;  // array of morph targets,
-  // where each target is a dict with attribues in ["POSITION, "NORMAL", "TANGENT"] pointing
+  // where each target is a dict with attribues in ["POSITION, "NORMAL",
+  // "TANGENT"] pointing
   // to their corresponding accessors
   ExtensionMap extensions;
   Value extras;

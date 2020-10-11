@@ -5,6 +5,7 @@
 #define TINYGLTF_IMPLEMENTATION
 #define TINYGLTF_NO_STB_IMAGE_WRITE
 #include <tiny_gltf.h>
+#include <glm/gtx/quaternion.hpp>
 
 namespace gltf {
 	static std::string GetFilePathExtension(const std::string& FileName)
@@ -17,7 +18,7 @@ namespace gltf {
 	///
 	/// Loads glTF 2.0 mesh
 	///
-	bool LoadGLTF(const std::string& filename, float scale, std::vector<Mesh<float> >* meshes,
+	bool LoadGLTF(const std::string& filename, float vert_scale, std::vector<Mesh<float> >* meshes,
 		std::vector<Material>* materials, std::vector<Texture>* textures,
 		int* total_faces, int* total_vertices)
 	{
@@ -31,71 +32,47 @@ namespace gltf {
 		const std::string ext = GetFilePathExtension(filename);
 
 		bool ret = false;
-		if (ext.compare("glb") == 0) {
+		if (ext.compare("glb") == 0) 
+		{
 			// assume binary glTF.
 			ret = loader.LoadBinaryFromFile(&model, &err, &warn, filename.c_str());
 		}
-		else {
+		else 
+		{
 			// assume ascii glTF.
 			ret = loader.LoadASCIIFromFile(&model, &err, &warn, filename.c_str());
 		}
 
-		if (!warn.empty()) {
+		if (!warn.empty()) 
+		{
 			std::cout << "glTF parse warning: " << warn << std::endl;
 		}
 
-		if (!err.empty()) {
+		if (!err.empty())
+		{
 			std::cerr << "glTF parse error: " << err << std::endl;
 		}
-		if (!ret) {
+		if (!ret)
+		{
 			std::cerr << "Failed to load glTF: " << filename << std::endl;
 			return false;
 		}
 
 		std::cout << "loaded glTF file has:\n"
-			<< model.accessors.size() << " accessors\n"
-			<< model.animations.size() << " animations\n"
-			<< model.buffers.size() << " buffers\n"
-			<< model.bufferViews.size() << " bufferViews\n"
-			<< model.materials.size() << " materials\n"
-			<< model.meshes.size() << " meshes\n"
-			<< model.nodes.size() << " nodes\n"
-			<< model.textures.size() << " textures\n"
-			<< model.images.size() << " images\n"
-			<< model.skins.size() << " skins\n"
-			<< model.samplers.size() << " samplers\n"
-			<< model.cameras.size() << " cameras\n"
-			<< model.scenes.size() << " scenes\n"
-			<< model.lights.size() << " lights\n";
-
-		std::unordered_map<int, glm::mat4> map;
-		// Iterate through all the meshes in the glTF file
-		for (int i = 0; i < model.nodes.size(); i++)
-		{
-			const auto& node = model.nodes[i];
-			int mesh_idx = node.mesh;
-			if (mesh_idx < 0)
-				continue;
-
-			glm::vec3 translation(0);
-			glm::vec3 rotation(0);
-			glm::vec3 scale(1);
-			
-			if (!node.translation.empty())
-			{
-				translation = glm::vec3(node.translation[0], node.translation[1], node.translation[2]);
-			}
-			if (!node.rotation.empty())
-			{
-				rotation = glm::vec3(node.rotation[0], node.rotation[1], node.rotation[2]);
-			}
-			if (!node.scale.empty())
-			{
-				scale = glm::vec3(node.scale[0], node.scale[1], node.scale[2]);
-			}
-
-			map[mesh_idx] = utilityCore::buildTransformationMatrix(translation, rotation, scale);
-		}
+				<< model.accessors.size() << " accessors\n"
+				<< model.animations.size() << " animations\n"
+				<< model.buffers.size() << " buffers\n"
+				<< model.bufferViews.size() << " bufferViews\n"
+				<< model.materials.size() << " materials\n"
+				<< model.meshes.size() << " meshes\n"
+				<< model.nodes.size() << " nodes\n"
+				<< model.textures.size() << " textures\n"
+				<< model.images.size() << " images\n"
+				<< model.skins.size() << " skins\n"
+				<< model.samplers.size() << " samplers\n"
+				<< model.cameras.size() << " cameras\n"
+				<< model.scenes.size() << " scenes\n"
+				<< model.lights.size() << " lights\n";
 
 		// Iterate through all the meshes in the glTF file
 		for (int mesh_idx = 0; mesh_idx < model.meshes.size(); mesh_idx++)
@@ -113,7 +90,8 @@ namespace gltf {
 			loadedMesh.name = gltfMesh.name;
 
 			// For each primitive
-			for (const auto& meshPrimitive : gltfMesh.primitives) {
+			for (const auto& meshPrimitive : gltfMesh.primitives) 
+			{
 				// Boolean used to check if we have converted the vertex buffer format
 				bool convertedToTriangleList = false;
 				// This permit to get a type agnostic way of reading the index buffer
@@ -257,9 +235,9 @@ namespace gltf {
 										const auto v = positions[i];
 										// std::cout << "positions[" << i << "]: (" << v.x << ", "  << v.y << ", " << v.z << ")\n";
 
-										loadedMesh.vertices.push_back(v.x * scale);
-										loadedMesh.vertices.push_back(v.y * scale);
-										loadedMesh.vertices.push_back(v.z * scale);
+										loadedMesh.vertices.push_back(v.x * vert_scale);
+										loadedMesh.vertices.push_back(v.y * vert_scale);
+										loadedMesh.vertices.push_back(v.z * vert_scale);
 									}
 								}
 								break;
@@ -273,9 +251,9 @@ namespace gltf {
 										const auto v = positions[i];
 										// std::cout << "positions[" << i << "]: (" << v.x  << ", " << v.y << ", " << v.z << ")\n";
 
-										loadedMesh.vertices.push_back(v.x * scale);
-										loadedMesh.vertices.push_back(v.y * scale);
-										loadedMesh.vertices.push_back(v.z * scale);
+										loadedMesh.vertices.push_back(v.x * vert_scale);
+										loadedMesh.vertices.push_back(v.y * vert_scale);
+										loadedMesh.vertices.push_back(v.z * vert_scale);
 									}
 								} break;
 								default:
@@ -295,10 +273,10 @@ namespace gltf {
 
 							switch (attribAccessor.type) {
 							case TINYGLTF_TYPE_VEC3: {
-								std::cout << "Normal is VEC3\n";
+								// std::cout << "Normal is VEC3\n";
 								switch (attribAccessor.componentType) {
 								case TINYGLTF_COMPONENT_TYPE_FLOAT: {
-									std::cout << "Normal is FLOAT\n";
+									// std::cout << "Normal is FLOAT\n";
 									v3fArray normals(
 										arrayAdapter<v3f>(dataPtr, count, byte_stride));
 
@@ -333,7 +311,7 @@ namespace gltf {
 									}
 								} break;
 								case TINYGLTF_COMPONENT_TYPE_DOUBLE: {
-									std::cout << "Normal is DOUBLE\n";
+									// std::cout << "Normal is DOUBLE\n";
 									v3dArray normals(
 										arrayAdapter<v3d>(dataPtr, count, byte_stride));
 
@@ -500,27 +478,6 @@ namespace gltf {
 				// TODO handle materials
 				/*for (size_t i{0}; i < loadedMesh.faces.size(); ++i)
 				  loadedMesh.material_ids.push_back(materials->at(0).id);*/
-
-				const glm::mat4& localToWorld = map[mesh_idx];
-				loadedMesh.transform[0][0] = localToWorld[0][0];
-				loadedMesh.transform[0][1] = localToWorld[0][1];
-				loadedMesh.transform[0][2] = localToWorld[0][2];
-				loadedMesh.transform[0][3] = localToWorld[0][3];
-
-				loadedMesh.transform[1][0] = localToWorld[1][0];
-				loadedMesh.transform[1][1] = localToWorld[1][1];
-				loadedMesh.transform[1][2] = localToWorld[1][2];
-				loadedMesh.transform[1][3] = localToWorld[1][3];
-
-				loadedMesh.transform[2][0] = localToWorld[2][0];
-				loadedMesh.transform[2][1] = localToWorld[2][1];
-				loadedMesh.transform[2][2] = localToWorld[2][2];
-				loadedMesh.transform[2][3] = localToWorld[2][3];
-
-				loadedMesh.transform[3][0] = localToWorld[3][0];
-				loadedMesh.transform[3][1] = localToWorld[3][1];
-				loadedMesh.transform[3][2] = localToWorld[3][2];
-				loadedMesh.transform[3][3] = localToWorld[3][3];
 
 				// stores 6 float values of 2 bounding box vertices
 				loadedMesh.bbox_verts.push_back(pMin.x);

@@ -61,11 +61,11 @@ int Scene::loadGeom(string objectid)
         std::vector<Geom> gltfGeoms;
         bool geomFromGltf = false;
 
-        string line;
-
         // load object type
+        string line;
         utilityCore::safeGetline(fp_in, line);
-        if (!line.empty() && fp_in.good()) {
+        if (!line.empty() && fp_in.good())
+        {
             if (strcmp(line.c_str(), "sphere") == 0)
             {
                 cout << "Creating new sphere..." << endl;
@@ -100,25 +100,25 @@ int Scene::loadGeom(string objectid)
                     meshGeom.meshid = i;
                     meshGeom.num_faces = mesh.faces.size() / 3;
 
-                    meshGeom.transform[0][0] = mesh.transform[0][0];
-                    meshGeom.transform[0][1] = mesh.transform[0][1];
-                    meshGeom.transform[0][2] = mesh.transform[0][2];
-                    meshGeom.transform[0][3] = mesh.transform[0][3];
+                    meshGeom.transform[0][0] = mesh.pivot_xform[0][0];
+                    meshGeom.transform[0][1] = mesh.pivot_xform[0][1];
+                    meshGeom.transform[0][2] = mesh.pivot_xform[0][2];
+                    meshGeom.transform[0][3] = mesh.pivot_xform[0][3];
 
-                    meshGeom.transform[1][0] = mesh.transform[1][0];
-                    meshGeom.transform[1][1] = mesh.transform[1][1];
-                    meshGeom.transform[1][2] = mesh.transform[1][2];
-                    meshGeom.transform[1][3] = mesh.transform[1][3];
+                    meshGeom.transform[1][0] = mesh.pivot_xform[1][0];
+                    meshGeom.transform[1][1] = mesh.pivot_xform[1][1];
+                    meshGeom.transform[1][2] = mesh.pivot_xform[1][2];
+                    meshGeom.transform[1][3] = mesh.pivot_xform[1][3];
 
-                    meshGeom.transform[2][0] = mesh.transform[2][0];
-                    meshGeom.transform[2][1] = mesh.transform[2][1];
-                    meshGeom.transform[2][2] = mesh.transform[2][2];
-                    meshGeom.transform[2][3] = mesh.transform[2][3];
+                    meshGeom.transform[2][0] = mesh.pivot_xform[2][0];
+                    meshGeom.transform[2][1] = mesh.pivot_xform[2][1];
+                    meshGeom.transform[2][2] = mesh.pivot_xform[2][2];
+                    meshGeom.transform[2][3] = mesh.pivot_xform[2][3];
 
-                    meshGeom.transform[3][0] = mesh.transform[3][0];
-                    meshGeom.transform[3][1] = mesh.transform[3][1];
-                    meshGeom.transform[3][2] = mesh.transform[3][2];
-                    meshGeom.transform[3][3] = mesh.transform[3][3];
+                    meshGeom.transform[3][0] = mesh.pivot_xform[3][0];
+                    meshGeom.transform[3][1] = mesh.pivot_xform[3][1];
+                    meshGeom.transform[3][2] = mesh.pivot_xform[3][2];
+                    meshGeom.transform[3][3] = mesh.pivot_xform[3][3];
 
                     gltfGeoms.push_back(meshGeom);
                 }
@@ -133,9 +133,7 @@ int Scene::loadGeom(string objectid)
             if (geomFromGltf)
             {
                 for (Geom& gltfGeom : gltfGeoms)
-                {
                     gltfGeom.materialid = atoi(tokens[1].c_str());
-                }
             }
             else
             {
@@ -150,7 +148,8 @@ int Scene::loadGeom(string objectid)
         glm::vec3 tempScale(1);
 
         utilityCore::safeGetline(fp_in, line);
-        while (!line.empty() && fp_in.good()) {
+        while (!line.empty() && fp_in.good())
+        {
             vector<string> tokens = utilityCore::tokenizeString(line);
             //load tranformations
             if (strcmp(tokens[0].c_str(), "TRANS") == 0) {
@@ -166,7 +165,7 @@ int Scene::loadGeom(string objectid)
             utilityCore::safeGetline(fp_in, line);
         }
 
-        glm::mat4 totalTransform = utilityCore::buildTransformationMatrix(tempTranslate, tempRotate, tempScale);
+        const glm::mat4 totalTransform = utilityCore::buildTransformationMatrix(tempTranslate, tempRotate, tempScale);
         if (geomFromGltf)
         {
             for (Geom& gltfGeom : gltfGeoms)

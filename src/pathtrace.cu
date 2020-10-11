@@ -22,7 +22,7 @@
 #define DEPTHOFFIELD false
 #define ANTIALIASING true
 #define CACHEFIRSTBOUNCE !ANTIALIASING
-#define DIRECTLIGHTING true
+#define DIRECTLIGHTING false
 #define MOTIONBLUR false
 
 #define ERRORCHECK 1
@@ -106,7 +106,6 @@ static unsigned int* dev_gltf_faces = nullptr;
 static unsigned int* dev_gltf_verts_offset = nullptr;
 static unsigned int* dev_gltf_faces_offset = nullptr;
 static float* dev_gltf_bbox_verts = nullptr;
-
 
 cudaEvent_t iter_event_start = nullptr;
 cudaEvent_t iter_event_end = nullptr;
