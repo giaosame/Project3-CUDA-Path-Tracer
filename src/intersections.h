@@ -7,9 +7,11 @@
 #include "glm/gtc/matrix_inverse.hpp"
 #include <glm/gtc/matrix_transform.hpp>
 #include "warpfunctions.h"
+#include "implicitsurface.h"
 
 #define MOTIONBLUR true
 #define MOTIONBLUR_VELOCITY glm::vec3(0.618, 0, 0)
+#define EPSILON 0.00618f
 
 __host__ __device__
 glm::mat4 getTansformation(glm::vec3 translation, glm::vec3 rotation, glm::vec3 scale) 
@@ -64,8 +66,8 @@ __host__ __device__ glm::vec3 multiplyMV(glm::mat4 m, glm::vec4 v)
  * @param outside            Output param for whether the ray came from outside.
  * @return                   Ray parameter `t` value. -1 if no intersection.
  */
-__host__ __device__ float boxIntersectionTest(Geom box,
-											  Ray r,
+__host__ __device__ float boxIntersectionTest(const Geom& box,
+											  const Ray& r,
 											  glm::vec3& intersectionPoint, 
 											  glm::vec3& normal, 
 											  bool& outside)
@@ -126,8 +128,8 @@ __host__ __device__ float boxIntersectionTest(Geom box,
  * @param outside            Output param for whether the ray came from outside.
  * @return                   Ray parameter `t` value. -1 if no intersection.
  */
-__host__ __device__ float sphereIntersectionTest(Geom sphere, 
-												 Ray r,
+__host__ __device__ float sphereIntersectionTest(const Geom& sphere,
+												 const Ray& r,
 												 glm::vec3& intersectionPoint, 
 												 glm::vec3& normal, 
 												 bool& outside)
@@ -189,16 +191,15 @@ __host__ __device__ float sphereIntersectionTest(Geom sphere,
  * @param outside            Output param for whether the ray came from outside.
  * @return                   Ray parameter `t` value. -1 if no intersection.
  */
-__host__ __device__ float meshIntersectionTest(Geom mesh,
-											   Ray r,
+__host__ __device__ float meshIntersectionTest(const Geom& mesh,
+											   const Ray& r,
 											   glm::vec3& intersectionPoint,
 											   glm::vec3& normal,
 											   bool& outside,
 											   unsigned int* faces,
 											   float* vertices,
 									           unsigned int* faces_offset,
-											   unsigned int* verts_offset,
-											   float* bbox_verts)
+											   unsigned int* verts_offset)
 {
 	float t = FLT_MAX;
 	bool intersected = false;
@@ -316,4 +317,78 @@ __host__ __device__ ShadeableIntersection getSampleOnSquare(const glm::vec2& xi,
 	*pdf = 1.f / area;
 
 	return it;
+}
+
+
+__host__ __device__ float implicitSurfaceIntersectionTest(const Geom& implicitSurface,
+														  const Ray& r,
+														  glm::vec3& intersectionPoint,
+														  glm::vec3& normal,
+														  bool& outside)
+{
+	const float MAX_DIST = 30.0f;
+	const float STEP = 1e-4f;
+	const float SCALE = implicitSurface.scale.x;
+
+	glm::vec3 ro = multiplyMV(implicitSurface.inverseTransform, glm::vec4(r.origin, 1.0f));
+	glm::vec3 rd = glm::normalize(multiplyMV(implicitSurface.inverseTransform, glm::vec4(r.direction, 0.0f)));
+
+	Ray rt;
+	rt.origin = ro;
+	rt.direction = rd;
+
+	const float x = ro.x;
+	const float y = ro.y;
+	const float z = ro.z;
+	//printf("x = %f, y = %f, z = %f\n", x, y, z);
+
+	float t = 0;
+	bool intersected = false;
+	if (implicitSurface.type == GeomType::CONE)
+	{
+		for (; t < MAX_DIST; t += STEP, ro += STEP * rd)
+		{
+			float curDist = ImplicitSurface::coneSDF(ro);
+			if (curDist < EPSILON)
+			{
+				intersected = true;
+				break;
+			}
+		}
+	}
+	else if (implicitSurface.type == GeomType::TANGLECUBE)
+	{
+		for (; t < MAX_DIST; t += STEP, ro += STEP * rd)
+		{
+			float curDist = ImplicitSurface::tanglecubeSDF(ro);
+			if (curDist < EPSILON)
+			{
+				intersected = true;
+				break;
+			}
+		}
+	}
+	else
+	{
+		for (; t < MAX_DIST; t += STEP, ro += STEP * rd)
+		{
+			float curDist = ImplicitSurface::torusSDF(ro);
+			if (curDist < EPSILON)
+			{
+				intersected = true;
+				break;
+			}
+		}
+	}
+	
+	if (intersected)
+	{
+		glm::vec3 objspaceIntersection = getPointOnRay(rt, t);
+		glm::vec3 objspaceNormal = ImplicitSurface::computeSurfaceNormal(implicitSurface, objspaceIntersection);
+		intersectionPoint = multiplyMV(implicitSurface.transform, glm::vec4(objspaceIntersection, 1.f));
+		normal = glm::normalize(multiplyMV(implicitSurface.invTranspose, glm::vec4(objspaceNormal, 0.f)));
+		return t;
+	}
+
+	return -1;;
 }

@@ -1,5 +1,4 @@
 #pragma once
-#pragma hd_warning_disable
 #include "sceneStructs.h"
 
 class FresnelDielectric

@@ -59,20 +59,20 @@ namespace gltf {
 		}
 
 		std::cout << "loaded glTF file has:\n"
-				<< model.accessors.size() << " accessors\n"
-				<< model.animations.size() << " animations\n"
-				<< model.buffers.size() << " buffers\n"
+				<< model.accessors.size()   << " accessors\n"
+				<< model.animations.size()  << " animations\n"
+				<< model.buffers.size()     << " buffers\n"
 				<< model.bufferViews.size() << " bufferViews\n"
-				<< model.materials.size() << " materials\n"
-				<< model.meshes.size() << " meshes\n"
-				<< model.nodes.size() << " nodes\n"
-				<< model.textures.size() << " textures\n"
-				<< model.images.size() << " images\n"
-				<< model.skins.size() << " skins\n"
-				<< model.samplers.size() << " samplers\n"
-				<< model.cameras.size() << " cameras\n"
-				<< model.scenes.size() << " scenes\n"
-				<< model.lights.size() << " lights\n";
+				<< model.materials.size()   << " materials\n"
+				<< model.meshes.size()      << " meshes\n"
+				<< model.nodes.size()       << " nodes\n"
+				<< model.textures.size()	<< " textures\n"
+				<< model.images.size()		<< " images\n"
+				<< model.skins.size()		<< " skins\n"
+				<< model.samplers.size()	<< " samplers\n"
+				<< model.cameras.size()		<< " cameras\n"
+				<< model.scenes.size()		<< " scenes\n"
+				<< model.lights.size()		<< " lights\n";
 
 		// Iterate through all the meshes in the glTF file
 		for (int mesh_idx = 0; mesh_idx < model.meshes.size(); mesh_idx++)
@@ -480,12 +480,9 @@ namespace gltf {
 				  loadedMesh.material_ids.push_back(materials->at(0).id);*/
 
 				// stores 6 float values of 2 bounding box vertices
-				loadedMesh.bbox_verts.push_back(pMin.x);
-				loadedMesh.bbox_verts.push_back(pMin.y);
-				loadedMesh.bbox_verts.push_back(pMin.z);
-				loadedMesh.bbox_verts.push_back(pMax.x);
-				loadedMesh.bbox_verts.push_back(pMax.y);
-				loadedMesh.bbox_verts.push_back(pMax.z);
+				loadedMesh.bbox_scale.push_back(pMax.x - pMin.x);
+				loadedMesh.bbox_scale.push_back(pMax.y - pMin.y);
+				loadedMesh.bbox_scale.push_back(pMax.z - pMin.z);
 
 				meshes->push_back(loadedMesh);
 

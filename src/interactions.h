@@ -3,9 +3,8 @@
 #include "fresnel.h"
 #include "sceneStructs.h"
 
-#define STRATIFIEDSAMPLING true
-#define EPSILON 0.000618f
-#define SAMPLESPERPIXEL 64
+#define STRATIFIED_SAMPLING true
+#define SAMPLES_PER_PIXEL 64
 
 // CHECKITOUT
 /**
@@ -18,8 +17,8 @@ glm::vec3 calculateRandomDirectionInHemisphere(glm::vec3 normal, thrust::default
     thrust::uniform_real_distribution<float> u01(0, 1);
     float r1 = u01(rng), r2 = u01(rng);
 
-#if STRATIFIEDSAMPLING
-    int samplesPerPixel = SAMPLESPERPIXEL;
+#if STRATIFIED_SAMPLING
+    int samplesPerPixel = SAMPLES_PER_PIXEL;
     int sqrtVal = sqrt(float(samplesPerPixel));
     // A number useful for scaling a square of size sqrtVal x sqrtVal to 1 x 1
     float invSqrtVal = 1.f / sqrtVal;
@@ -120,8 +119,8 @@ void scatterDirectRay(PathSegment& pathSegment,
         glm::vec3 wi;
 
         float r1 = u01(rng), r2 = u01(rng);
-#if STRATIFIEDSAMPLING
-        int samplesPerPixel = SAMPLESPERPIXEL;
+#if STRATIFIED_SAMPLING
+        int samplesPerPixel = SAMPLES_PER_PIXEL;
         int sqrtVal = sqrt(float(samplesPerPixel));
         float invSqrtVal = 1.f / sqrtVal;
 
@@ -132,7 +131,7 @@ void scatterDirectRay(PathSegment& pathSegment,
                                      (y + r2) * invSqrtVal);
         r1 = sample.x;
         r2 = sample.y;
-#endif // STRATIFIEDSAMPLING
+#endif // STRATIFIED_SAMPLING
 
         sampleLi(intersection, randLight, glm::vec2(r1, r2), &wi, &lightPdf);
         if (lightPdf == 0.f)

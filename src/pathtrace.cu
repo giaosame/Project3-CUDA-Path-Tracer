@@ -18,15 +18,15 @@
 #include "warpfunctions.h"
 
 
-#define BOUNDINGBOXINTERSECTIONTEST true
-#define DEPTHOFFIELD false
-#define ANTIALIASING true
-#define CACHEFIRSTBOUNCE !ANTIALIASING
-#define DIRECTLIGHTING false
+#define BOUNDING_BOX_INTERSECTION_TEST true
+#define DEPTH_OF_FIELD false
+#define ANTI_ALIASING true
+#define CACHE_FIRST_BOUNCE !ANTI_ALIASINGANTI_ALIASING
+#define DIRECT_LIGHTING true
 #define MOTIONBLUR false
 
-#define ERRORCHECK 1
-#define RECORDEDITERATION 100
+#define ERROR_CHECK 1
+#define RECORDED_ITERATION 100
 #define MOTIONBLUR_VELOCITY glm::vec3(0, 0.96f, 0)
 
 #define FILENAME (strrchr(__FILE__, '/') ? strrchr(__FILE__, '/') + 1 : __FILE__)
@@ -35,7 +35,7 @@
 
 void checkCUDAErrorFn(const char* msg, const char* file, int line)
 {
-#if ERRORCHECK
+#if ERROR_CHECK
 	cudaDeviceSynchronize();
 	cudaError_t err = cudaGetLastError();
 	if (cudaSuccess == err) {
@@ -105,7 +105,7 @@ static float* dev_gltf_vertices = nullptr;
 static unsigned int* dev_gltf_faces = nullptr;
 static unsigned int* dev_gltf_verts_offset = nullptr;
 static unsigned int* dev_gltf_faces_offset = nullptr;
-static float* dev_gltf_bbox_verts = nullptr;
+static float* dev_gltf_bbox_scales = nullptr;
 
 cudaEvent_t iter_event_start = nullptr;
 cudaEvent_t iter_event_end = nullptr;
@@ -167,7 +167,7 @@ void pathtraceFree()
 	cudaFree(dev_gltf_vertices);
 	cudaFree(dev_gltf_faces_offset);
 	cudaFree(dev_gltf_verts_offset);
-	cudaFree(dev_gltf_bbox_verts);
+	cudaFree(dev_gltf_bbox_scales);
 
 	checkCUDAError("pathtraceFree");
 }
@@ -195,14 +195,14 @@ __global__ void generateRayFromCamera(Camera cam, int iter, int traceDepth, Path
 		thrust::default_random_engine rng = makeSeededRandomEngine(iter, index, traceDepth);
 		thrust::uniform_real_distribution<float> u01(0, 1);
 
-#if ANTIALIASING
+#if ANTI_ALIASING
 		// Do antialiasing by jittering the ray
 		segment.ray = cam.rayCast(x + u01(rng), y + u01(rng));
 #else
 		segment.ray = cam.rayCast(x, y);
 #endif // ANTIALIASING
 		
-#if DEPTHOFFIELD
+#if DEPTH_OF_FIELD
 		if (cam.lensRadius > 0)
 		{
 			// Sample point on lens
@@ -213,14 +213,13 @@ __global__ void generateRayFromCamera(Camera cam, int iter, int traceDepth, Path
 			segment.ray.origin += glm::vec3(pLens.x, pLens.y, 0);
 			segment.ray.direction = glm::normalize(pFocus - segment.ray.origin); 
 		}
-#endif // DEPTHOFFIELD
+#endif // DEPTH_OF_FIELD
 
 		segment.pixelIndex = index;
 		segment.remainingBounces = traceDepth;
 	}
 }
 
-// TODO:
 // computeIntersections handles generating ray intersections ONLY.
 // Generating new rays is handled in your shader(s).
 // Feel free to modify the code below.
@@ -235,8 +234,7 @@ __global__ void computeIntersections(int iter,
 									 float* vertices,
 									 unsigned int* num_faces,
 									 unsigned int* num_vertices,
-									 float* bbox_verts
-									 )
+									 float* bbox_scales)
 {
 	int path_index = blockIdx.x * blockDim.x + threadIdx.x;
 
@@ -276,26 +274,27 @@ __global__ void computeIntersections(int iter,
 			else if (geom.type == GeomType::MESH)
 			{
 				bool bbox_hit = true;
-#if BOUNDINGBOXINTERSECTIONTEST
+#if BOUNDING_BOX_INTERSECTION_TEST
 				int i = geom.meshid;
 				Geom bbox_geom;
 				bbox_geom.type = GeomType::CUBE;
-				glm::vec3 bbox_scale(bbox_verts[i * 6 + 3] - bbox_verts[i * 6 + 0],
-									 bbox_verts[i * 6 + 4] - bbox_verts[i * 6 + 1],
-									 bbox_verts[i * 6 + 5] - bbox_verts[i * 6 + 2]);
+				glm::vec3 bbox_scale(bbox_scales[i * 3 + 0], bbox_scales[i * 3 + 1], bbox_scales[i * 3 + 2]);
 
 				setGeomTransform(&bbox_geom, geom.transform * getTansformation(glm::vec3(0), glm::vec3(0), bbox_scale));
 				t = boxIntersectionTest(bbox_geom, pathSegment.ray, tmp_intersect, tmp_normal, outside);
 				// Do bounding box intersection culling if not
 				bbox_hit = t > 0.0f && t < t_min;
-#endif // BOUNDINGBOXINTERSECTIONTEST
+#endif // BOUNDING_BOX_INTERSECTION_TEST
 				if (bbox_hit)
 				{
 					t = meshIntersectionTest(geom, pathSegment.ray, tmp_intersect, tmp_normal, outside,
-											 faces, vertices, num_faces, num_vertices, bbox_verts);
+											 faces, vertices, num_faces, num_vertices);
 				}
 			}
-			// TODO: add more intersection tests here... triangle? metaball? CSG?
+			else if(geom.type == GeomType::CONE || geom.type == GeomType::TANGLECUBE || geom.type == GeomType::TORUS)
+			{
+				t = implicitSurfaceIntersectionTest(geom, pathSegment.ray, tmp_intersect, tmp_normal, outside);
+			}
 
 			// Compute the minimum t from the intersection tests to determine what
 			// scene geometry object was hit first.
@@ -330,7 +329,7 @@ void preprocessGltfData(Scene* scene)
 
 	cudaMalloc(&dev_gltf_faces, scene->total_faces * sizeof(unsigned int));
 	cudaMalloc(&dev_gltf_vertices, scene->total_vertices * sizeof(float));
-	cudaMalloc(&dev_gltf_bbox_verts, 6 * num_meshes * sizeof(float));
+	cudaMalloc(&dev_gltf_bbox_scales, 3 * num_meshes * sizeof(float));
 
 	for (int i = 0, face_offset = 0, vertice_offset = 0; i < num_meshes; i++)
 	{
@@ -342,7 +341,7 @@ void preprocessGltfData(Scene* scene)
 			cudaMemcpyKind::cudaMemcpyHostToDevice);
 		cudaMemcpy(dev_gltf_vertices + vertice_offset, mesh.vertices.data(), cur_num_vertices * sizeof(float),
 			cudaMemcpyKind::cudaMemcpyHostToDevice);
-		cudaMemcpy(dev_gltf_bbox_verts + i * 6, mesh.bbox_verts.data(), 6 * sizeof(float),
+		cudaMemcpy(dev_gltf_bbox_scales + i * 3, mesh.bbox_scale.data(), 3 * sizeof(float),
 			cudaMemcpyKind::cudaMemcpyHostToDevice);
 		
 		scene->faces_per_mesh.push_back(face_offset);
@@ -391,11 +390,11 @@ __global__ void shadeMaterial(int iter,
 			}
 			else
 			{
-#if DIRECTLIGHTING
+#if DIRECT_LIGHTING
 				scatterDirectRay(pathSegments[idx], intersection, material, rng, lightGeoms, num_lights);
 #else
 				scatterIndirectRay(pathSegments[idx], intersection, material, rng);
-#endif // DIRECTLIGHTING
+#endif // DIRECT_LIGHTING
 			}
 		}
 		else
@@ -438,7 +437,7 @@ void pathtrace(uchar4* pbo, int frame, int iter)
 
 	float iter_time = 0.f;
 	cudaEventRecord(iter_event_start);
-#if CACHEFIRSTBOUNCE
+#if CACHE_FIRST_BOUNCE
 	if (iter == 1)
 	{
 		generateRayFromCamera<<<blocksPerGrid2d, blockSize2d>>>(cam, iter, traceDepth, dev_paths);
@@ -456,7 +455,7 @@ void pathtrace(uchar4* pbo, int frame, int iter)
 #else
 	generateRayFromCamera << <blocksPerGrid2d, blockSize2d >> > (cam, iter, traceDepth, dev_paths);
 	checkCUDAError("generate camera ray");
-#endif // CACHEFIRSTBOUNCE
+#endif // CACHE_FIRST_BOUNCE
 
 	int depth = 0;
 	PathSegment* dev_paths_end = dev_paths + pixelcount;
@@ -471,7 +470,7 @@ void pathtrace(uchar4* pbo, int frame, int iter)
 		dim3 numblocksPathSegmentTracing = (cur_num_paths + blockSize1d - 1) / blockSize1d;
 
 		// Tracing
-#if CACHEFIRSTBOUNCE
+#if CACHE_FIRST_BOUNCE
 		if (depth == 0 && iter > 1)
 		{
 			cudaMemcpy(dev_intersections, dev_first_intersections,
@@ -491,7 +490,7 @@ void pathtrace(uchar4* pbo, int frame, int iter)
 				dev_gltf_vertices，
 				dev_gltf_faces_offset,
 				dev_gltf_verts_offset,
-				dev_gltf_bbox_verts
+				dev_gltf_bbox_scales
 			);
 
 			// In the first bounce, store first intersections in the cache _dev_first_intersections_ 
@@ -514,9 +513,9 @@ void pathtrace(uchar4* pbo, int frame, int iter)
 			dev_gltf_vertices，
 			dev_gltf_faces_offset,
 			dev_gltf_verts_offset,
-			dev_gltf_bbox_verts
+			dev_gltf_bbox_scales
 		);
-#endif // CACHEFIRSTBOUNCE
+#endif // CACHE_FIRST_BOUNCE
 
 		checkCUDAError("trace one bounce");
 		cudaDeviceSynchronize();
@@ -554,10 +553,10 @@ void pathtrace(uchar4* pbo, int frame, int iter)
 	cudaEventElapsedTime(&iter_time, iter_event_start, iter_event_end);
 	gpu_time_accumulator += iter_time;
 
-	if (iter == RECORDEDITERATION)
+	if (iter == RECORDED_ITERATION)
 	{
-		std::cout << "Elapsed time to finish " << RECORDEDITERATION << " iterations: " << gpu_time_accumulator << "ms" << endl;
-		std::cout << "Average time to run a single iteration: " << gpu_time_accumulator / RECORDEDITERATION << "ms" << endl;
+		std::cout << "Elapsed time to finish " << RECORDED_ITERATION << " iterations: " << gpu_time_accumulator << "ms" << endl;
+		std::cout << "Average time to run a single iteration: " << gpu_time_accumulator / RECORDED_ITERATION << "ms" << endl;
 	}
 
 	// Retrieve image from GPU

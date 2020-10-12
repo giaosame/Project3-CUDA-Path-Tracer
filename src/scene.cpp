@@ -76,6 +76,21 @@ int Scene::loadGeom(string objectid)
                 cout << "Creating new cube..." << endl;
                 newGeom.type = GeomType::CUBE;
             }
+            else if (strcmp(line.c_str(), "cone") == 0)
+            {
+                cout << "Creating new cone..." << endl;
+                newGeom.type = GeomType::CONE;
+            }
+            else if (strcmp(line.c_str(), "tanglecube") == 0)
+            {
+                cout << "Creating new tanglecube..." << endl;
+                newGeom.type = GeomType::TANGLECUBE;
+            }
+            else if (strcmp(line.c_str(), "torus") == 0)
+            {
+                cout << "Creating new torus..." << endl;
+                newGeom.type = GeomType::TORUS;
+            }
             else if (strcmp(line.c_str(), "mesh") == 0)
             {
                 cout << "Creating new mesh..." << endl;
