@@ -79,6 +79,7 @@ set(headers
     src/utilities.h
     src/fresnel.h
     src/warpfunctions.h
+    src/implicitsurface.h
     )
 
 set(sources
