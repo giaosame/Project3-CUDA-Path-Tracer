@@ -1051,9 +1051,8 @@ class Node {
 struct Buffer {
   std::string name;
   std::vector<unsigned char> data;
-  std::string
-      uri;  // considered as required here but not in the spec (need to clarify)
-            // uri is not decoded(e.g. whitespace may be represented as %20)
+  std::string uri;  // considered as required here but not in the spec (need to clarify)
+                    // uri is not decoded(e.g. whitespace may be represented as %20)
   Value extras;
   ExtensionMap extensions;
 

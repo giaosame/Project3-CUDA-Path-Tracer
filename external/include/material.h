@@ -24,7 +24,7 @@ struct Material {
   // int reflection_texid;
   // int transparency_texid;
   // int bump_texid;
-  // int normal_texid;  // normal map
+  int normal_texid;  // normal map
   // int alpha_texid;  // alpha map
 
   Material() {

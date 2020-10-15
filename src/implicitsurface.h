@@ -13,11 +13,11 @@ public:
 		const glm::vec3 delta_z(0, 0, 0.001f);
 
 		glm::vec3 normal;
-		if (geom.type == GeomType::CONE)
+		if (geom.type == GeomType::HEART)
 		{
-			normal = glm::vec3(coneSDF(p + delta_x) - coneSDF(p - delta_x),
-							   coneSDF(p + delta_y) - coneSDF(p - delta_y),
-							   coneSDF(p + delta_z) - coneSDF(p - delta_z));
+			normal = glm::vec3(heartSDF(p + delta_x) - heartSDF(p - delta_x),
+							   heartSDF(p + delta_y) - heartSDF(p - delta_y),
+							   heartSDF(p + delta_z) - heartSDF(p - delta_z));
 		}
 		else if (geom.type == GeomType::TANGLECUBE)
 		{
@@ -44,15 +44,14 @@ public:
 	}
 
 	__host__ __device__
-	static float coneSDF(const glm::vec3& p, const float h = 1.0f, const float r1 =	1.0f, const float r2 = 0.0f)
+	static float heartSDF(const glm::vec3& p, const float h = 1.0f, const float r1 =	1.0f, const float r2 = 0.0f)
 	{
-		const glm::vec2 q(glm::length(glm::vec2(p.x, p.z)), p.y);
-		const glm::vec2 k1(r2, h);
-		const glm::vec2 k2(r2 - r1, 2.f * h);
-		const glm::vec2 ca(q.x - glm::min(q.x, (q.y < 0.f) ? r1 : r2), abs(q.y) - h);
-		const glm::vec2 cb = q - k1 + k2 * glm::clamp(glm::dot(k1 - q, k2) / glm::dot(k2, k2), 0.f, 1.f);
-		float s = (cb.x < 0.f && ca.y < 0.f) ? -1.f : 1.f;
-		return s * sqrt(glm::min(glm::dot(ca, ca), glm::dot(cb, cb)));
+		const float x2 = p.x * p.x;
+		const float y2 = p.y * p.y;
+		const float z2 = p.z * p.z;
+		const float z3 = p.z * z2;
+		const float temp = x2 + 9.f * y2 / 4.f + z2 - 1.f;
+		return temp * temp * temp - x2 * z3 - 9.f * y2 * z3 / 80.f;
 	}
 
 	__host__ __device__
@@ -62,6 +61,6 @@ public:
 		const float x2 = p.x * p.x;
 		const float y2 = p.y * p.y;
 		const float z2 = p.z * p.z;
-		return x2 * x2 - 5 * x2 + y2 * y2 - 5 * y2 + z2 * z2 - 5 * z2 + 11.8f;
+		return x2 * x2 - 5.f * x2 + y2 * y2 - 5.f * y2 + z2 * z2 - 5.f * z2 + 11.8f;
 	}
 };

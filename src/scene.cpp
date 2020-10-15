@@ -43,7 +43,12 @@ Scene::~Scene()
 
 int Scene::getMeshesSize() const
 {
-    return meshes.size();
+    return gltfMeshes.size();
+}
+
+int Scene::getTexturesSize() const
+{
+    return gltfTextures.size();
 }
 
 int Scene::loadGeom(string objectid) 
@@ -76,10 +81,10 @@ int Scene::loadGeom(string objectid)
                 cout << "Creating new cube..." << endl;
                 newGeom.type = GeomType::CUBE;
             }
-            else if (strcmp(line.c_str(), "cone") == 0)
+            else if (strcmp(line.c_str(), "heart") == 0)
             {
                 cout << "Creating new cone..." << endl;
-                newGeom.type = GeomType::CONE;
+                newGeom.type = GeomType::HEART;
             }
             else if (strcmp(line.c_str(), "tanglecube") == 0)
             {
@@ -98,17 +103,17 @@ int Scene::loadGeom(string objectid)
 
                 utilityCore::safeGetline(fp_in, line);
                 const std::string gltf_file = line;
-                bool ret = LoadGLTF(gltf_file, 1, &(this->meshes), nullptr, nullptr,
-                    &this->total_faces, &this->total_vertices);
+                bool ret = LoadGLTF(gltf_file, 1, &(this->gltfMeshes), &(this->gltfMaterials), &(this->gltfTextures),
+                                    &this->total_faces, &this->total_vertices);
                 if (!ret)
                 {
                     std::cerr << "Failed to load glTF file [ " << gltf_file << " ]" << std::endl;
                     return -1;
                 }
                 
-                for (int i = 0; i < meshes.size(); i++)
+                for (int i = 0; i < gltfMeshes.size(); i++)
                 {
-                    const gltf::Mesh<float>& mesh = meshes[i];
+                    const gltf::Mesh<float>& mesh = gltfMeshes[i];
 
                     Geom meshGeom;
                     meshGeom.type = GeomType::MESH;

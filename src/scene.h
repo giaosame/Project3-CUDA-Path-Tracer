@@ -28,11 +28,15 @@ public:
     RenderState state;
 
     int getMeshesSize() const;
+    int getTexturesSize() const;
 
     // class members for gltf meshes
-    std::vector<gltf::Mesh<float>> meshes;
-    std::vector<unsigned int> faces_per_mesh;
-    std::vector<unsigned int> vertices_per_mesh;
+    std::vector<gltf::Mesh<float>> gltfMeshes;
+    std::vector<gltf::Material> gltfMaterials;
+    std::vector<gltf::Texture> gltfTextures;
+
+    std::vector<unsigned int> faces_offset;
+    std::vector<unsigned int> vertices_offset;
 
     int total_faces;
     int total_vertices;

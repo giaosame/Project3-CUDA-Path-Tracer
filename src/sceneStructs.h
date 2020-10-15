@@ -13,8 +13,8 @@ enum GeomType {
 	SPHERE,
 	CUBE,
 	MESH,
+	HEART,
 	TORUS,
-	CONE,
 	TANGLECUBE
 };
 

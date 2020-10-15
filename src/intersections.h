@@ -199,7 +199,8 @@ __host__ __device__ float meshIntersectionTest(const Geom& mesh,
 											   unsigned int* faces,
 											   float* vertices,
 									           unsigned int* faces_offset,
-											   unsigned int* verts_offset)
+											   unsigned int* verts_offset,
+											   unsigned int* gltf_mat_ids)
 {
 	float t = FLT_MAX;
 	bool intersected = false;
@@ -248,6 +249,15 @@ __host__ __device__ float meshIntersectionTest(const Geom& mesh,
 			outside = false;
 			if (res.z >= t)
 				continue;
+
+			unsigned int m0 = gltf_mat_ids[3 * face_idx + 0 + f_offset];
+			unsigned int m1 = gltf_mat_ids[3 * face_idx + 1 + f_offset];
+			unsigned int m2 = gltf_mat_ids[3 * face_idx + 2 + f_offset];
+
+			if (m0 != m1 || m0 != m2 || m1 != m2)
+			{
+				printf("m0 = %d, m1 = %d, m2 = %d\n", m0, m1, m2);
+			}
 
 			t = res.z;
 			glm::vec3 objspaceIntersection = getPointOnRay(rt, t);
@@ -344,11 +354,11 @@ __host__ __device__ float implicitSurfaceIntersectionTest(const Geom& implicitSu
 
 	float t = 0;
 	bool intersected = false;
-	if (implicitSurface.type == GeomType::CONE)
+	if (implicitSurface.type == GeomType::HEART)
 	{
 		for (; t < MAX_DIST; t += STEP, ro += STEP * rd)
 		{
-			float curDist = ImplicitSurface::coneSDF(ro);
+			float curDist = ImplicitSurface::heartSDF(ro);
 			if (curDist < EPSILON)
 			{
 				intersected = true;

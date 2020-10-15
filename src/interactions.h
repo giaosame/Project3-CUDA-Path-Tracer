@@ -97,7 +97,8 @@ void scatterDirectRay(PathSegment& pathSegment,
     const Material& m,
     thrust::default_random_engine& rng,
     Geom* lightGeoms,
-    int num_lights)
+    int num_lights,
+    const cudaTextureObject_t* texObjs)
 {
     if (num_lights == 0 || m.hasRefractive > 0.f || m.hasReflective > 0.f || pathSegment.remainingBounces == 1)
     {
@@ -172,12 +173,13 @@ void scatterIndirectRay(PathSegment& pathSegment,
     if (m.hasRefractive > 0.f)
     {
         thrust::uniform_real_distribution<float> u01(0, 1);
-        pathSegment.ray.direction = FresnelDielectric::evaluate(wo, normal, m.hasRefractive, u01(rng));
         pathSegment.color *= m.specular.color;
+        pathSegment.ray.direction = FresnelDielectric::evaluate(wo, normal, m.hasRefractive, u01(rng));
         pathSegment.ray.origin = intersectionPoint + EPSILON * pathSegment.ray.direction;
     }
     else if (m.hasReflective > 0.f)  // specular
     {
+        pathSegment.color *= m.specular.color;
         pathSegment.ray.direction = glm::reflect(wo, normal);
         pathSegment.ray.origin = intersectionPoint;
     }

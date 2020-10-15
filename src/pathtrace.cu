@@ -21,7 +21,7 @@
 #define BOUNDING_BOX_INTERSECTION_TEST true
 #define DEPTH_OF_FIELD false
 #define ANTI_ALIASING true
-#define CACHE_FIRST_BOUNCE !ANTI_ALIASINGANTI_ALIASING
+#define CACHE_FIRST_BOUNCE !ANTI_ALIASING
 #define DIRECT_LIGHTING true
 #define MOTIONBLUR false
 
@@ -106,6 +106,12 @@ static unsigned int* dev_gltf_faces = nullptr;
 static unsigned int* dev_gltf_verts_offset = nullptr;
 static unsigned int* dev_gltf_faces_offset = nullptr;
 static float* dev_gltf_bbox_scales = nullptr;
+static float* dev_gltf_uvs = nullptr;
+static unsigned int* dev_gltf_mat_ids = nullptr;
+
+static gltf::Material* dev_gltf_materials = nullptr;
+static cudaArray** dev_cu_tex_arrays = nullptr;
+static cudaTextureObject_t* dev_gltf_tex_objs = nullptr;
 
 cudaEvent_t iter_event_start = nullptr;
 cudaEvent_t iter_event_end = nullptr;
@@ -117,7 +123,7 @@ void pathtraceInit(Scene* scene)
 	const int pixelcount = cam.resolution.x * cam.resolution.y;
 
 	// if glTF mesh exists
-	if (!scene->meshes.empty())
+	if (scene->getMeshesSize() > 0)
 	{
 		preprocessGltfData(scene);
 	}
@@ -128,10 +134,12 @@ void pathtraceInit(Scene* scene)
 	cudaMalloc(&dev_paths, pixelcount * sizeof(PathSegment));
 
 	cudaMalloc(&dev_geoms, scene->geoms.size() * sizeof(Geom));
-	cudaMemcpy(dev_geoms, scene->geoms.data(), scene->geoms.size() * sizeof(Geom), cudaMemcpyHostToDevice);
+	cudaMemcpy(dev_geoms, scene->geoms.data(), scene->geoms.size() * sizeof(Geom), 
+		cudaMemcpyKind::cudaMemcpyHostToDevice);
 
 	cudaMalloc(&dev_materials, scene->materials.size() * sizeof(Material));
-	cudaMemcpy(dev_materials, scene->materials.data(), scene->materials.size() * sizeof(Material), cudaMemcpyHostToDevice);
+	cudaMemcpy(dev_materials, scene->materials.data(), scene->materials.size() * sizeof(Material), 
+		cudaMemcpyKind::cudaMemcpyHostToDevice);
 
 	cudaMalloc(&dev_intersections, pixelcount * sizeof(ShadeableIntersection));
 	cudaMemset(dev_intersections, 0, pixelcount * sizeof(ShadeableIntersection));
@@ -143,7 +151,8 @@ void pathtraceInit(Scene* scene)
 	cudaMemset(dev_first_intersections, 0, pixelcount * sizeof(ShadeableIntersection));
 
 	cudaMalloc(&dev_light_geoms, scene->lightGeoms.size() * sizeof(Geom));
-	cudaMemcpy(dev_light_geoms, scene->lightGeoms.data(), scene->lightGeoms.size() * sizeof(Geom), cudaMemcpyHostToDevice);
+	cudaMemcpy(dev_light_geoms, scene->lightGeoms.data(), scene->lightGeoms.size() * sizeof(Geom), 
+		cudaMemcpyKind::cudaMemcpyHostToDevice);
 
 	cudaEventCreate(&iter_event_start);
 	cudaEventCreate(&iter_event_end);
@@ -151,7 +160,7 @@ void pathtraceInit(Scene* scene)
 	checkCUDAError("pathtraceInit");
 }
 
-void pathtraceFree() 
+void pathtraceFree(Scene* scene)
 {
 	cudaFree(dev_image);  // no-op if dev_image is null
 	cudaFree(dev_paths);
@@ -169,6 +178,17 @@ void pathtraceFree()
 	cudaFree(dev_gltf_verts_offset);
 	cudaFree(dev_gltf_bbox_scales);
 
+	cudaFree(dev_gltf_uvs);
+	cudaFree(dev_gltf_mat_ids);
+	cudaFree(dev_gltf_materials);
+	
+	for (int i = 0; i < scene->getTexturesSize(); i++)
+	{
+		if (dev_cu_tex_arrays != nullptr)
+			cudaFreeArray(dev_cu_tex_arrays[i]);
+		if (dev_gltf_tex_objs != nullptr)
+			cudaDestroyTextureObject(dev_gltf_tex_objs[i]);
+	}
 	checkCUDAError("pathtraceFree");
 }
 
@@ -234,10 +254,11 @@ __global__ void computeIntersections(int iter,
 									 float* vertices,
 									 unsigned int* num_faces,
 									 unsigned int* num_vertices,
-									 float* bbox_scales)
+									 float* bbox_scales,
+									 unsigned int* gltf_mat_ids)
 {
 	int path_index = blockIdx.x * blockDim.x + threadIdx.x;
-
+	
 	if (path_index < num_paths)
 	{
 		const PathSegment& pathSegment = pathSegments[path_index];
@@ -288,10 +309,10 @@ __global__ void computeIntersections(int iter,
 				if (bbox_hit)
 				{
 					t = meshIntersectionTest(geom, pathSegment.ray, tmp_intersect, tmp_normal, outside,
-											 faces, vertices, num_faces, num_vertices);
+											 faces, vertices, num_faces, num_vertices, gltf_mat_ids);
 				}
 			}
-			else if(geom.type == GeomType::CONE || geom.type == GeomType::TANGLECUBE || geom.type == GeomType::TORUS)
+			else if(geom.type == GeomType::HEART || geom.type == GeomType::TANGLECUBE || geom.type == GeomType::TORUS)
 			{
 				t = implicitSurfaceIntersectionTest(geom, pathSegment.ray, tmp_intersect, tmp_normal, outside);
 			}
@@ -323,41 +344,95 @@ __global__ void computeIntersections(int iter,
 	}
 }
 
+void convertTexturesToTexObjs(const std::vector<gltf::Texture>& gltfTextures)
+{
+	int num_texs = gltfTextures.size();
+	dev_cu_tex_arrays = new cudaArray*[num_texs];
+	dev_gltf_tex_objs = new cudaTextureObject_t[num_texs];
+
+	for (int i = 0; i < num_texs; i++)
+	{
+		const gltf::Texture& gltfTexture = gltfTextures[i];
+		cudaChannelFormatDesc channelDesc 
+			= cudaCreateChannelDesc(32, 0, 0, 0, cudaChannelFormatKind::cudaChannelFormatKindFloat);
+
+		cudaMallocArray(&dev_cu_tex_arrays[i], &channelDesc, gltfTexture.width, gltfTexture.height);
+
+		// Copy to device memory some data located at address h_data in host memory
+		int size = gltfTexture.width * gltfTexture.height;
+		cudaMemcpyToArray(dev_cu_tex_arrays[i], 0, 0, gltfTexture.image, size * sizeof(unsigned char),
+			cudaMemcpyKind::cudaMemcpyHostToDevice);
+
+		// Specify texture
+		struct cudaResourceDesc resDesc;
+		memset(&resDesc, 0, sizeof(resDesc));
+		resDesc.resType = cudaResourceTypeArray;
+		resDesc.res.array.array = dev_cu_tex_arrays[i];
+
+		// Specify texture object parameters
+		struct cudaTextureDesc texDesc;
+		memset(&texDesc, 0, sizeof(texDesc));
+		texDesc.addressMode[0] = cudaAddressModeWrap;
+		texDesc.addressMode[1] = cudaAddressModeWrap;
+		texDesc.filterMode = cudaFilterModeLinear;
+		texDesc.readMode = cudaReadModeElementType;
+		texDesc.normalizedCoords = 1;
+		
+		// Create texture object
+		cudaCreateTextureObject(dev_gltf_tex_objs + i, &resDesc, &texDesc, NULL);
+	}
+}
+
 void preprocessGltfData(Scene* scene)
 {
 	int num_meshes = scene->getMeshesSize();
 
 	cudaMalloc(&dev_gltf_faces, scene->total_faces * sizeof(unsigned int));
+	cudaMalloc(&dev_gltf_mat_ids, scene->total_faces * sizeof(unsigned int));
+	cudaMalloc(&dev_gltf_uvs , 2 * scene->total_faces * sizeof(float));
+
 	cudaMalloc(&dev_gltf_vertices, scene->total_vertices * sizeof(float));
 	cudaMalloc(&dev_gltf_bbox_scales, 3 * num_meshes * sizeof(float));
 
 	for (int i = 0, face_offset = 0, vertice_offset = 0; i < num_meshes; i++)
 	{
-		const gltf::Mesh<float>& mesh = scene->meshes[i];
+		const gltf::Mesh<float>& mesh = scene->gltfMeshes[i];
 		int cur_num_faces = mesh.faces.size();
 		int cur_num_vertices = mesh.vertices.size();
 
 		cudaMemcpy(dev_gltf_faces + face_offset, mesh.faces.data(), cur_num_faces * sizeof(unsigned int),
 			cudaMemcpyKind::cudaMemcpyHostToDevice);
+		cudaMemcpy(dev_gltf_mat_ids + face_offset, mesh.material_ids.data(), cur_num_faces * sizeof(unsigned int),
+			cudaMemcpyKind::cudaMemcpyHostToDevice);
+		cudaMemcpy(dev_gltf_uvs + 2 * face_offset, mesh.facevarying_uvs.data(), 2 * cur_num_faces * sizeof(float),
+			cudaMemcpyKind::cudaMemcpyHostToDevice);
+
 		cudaMemcpy(dev_gltf_vertices + vertice_offset, mesh.vertices.data(), cur_num_vertices * sizeof(float),
 			cudaMemcpyKind::cudaMemcpyHostToDevice);
 		cudaMemcpy(dev_gltf_bbox_scales + i * 3, mesh.bbox_scale.data(), 3 * sizeof(float),
 			cudaMemcpyKind::cudaMemcpyHostToDevice);
 		
-		scene->faces_per_mesh.push_back(face_offset);
-		scene->vertices_per_mesh.push_back(vertice_offset);
+		scene->faces_offset.push_back(face_offset);
+		scene->vertices_offset.push_back(vertice_offset);
 
 		face_offset += cur_num_faces;
 		vertice_offset += cur_num_vertices;
 	}
 
-	cudaMalloc(&dev_gltf_verts_offset, scene->vertices_per_mesh.size() * sizeof(unsigned int));
-	cudaMalloc(&dev_gltf_faces_offset, scene->faces_per_mesh.size() * sizeof(unsigned int));
+	cudaMalloc(&dev_gltf_verts_offset, scene->vertices_offset.size() * sizeof(unsigned int));
+	cudaMemcpy(dev_gltf_verts_offset, scene->vertices_offset.data(), scene->vertices_offset.size() * sizeof(unsigned int),
+		cudaMemcpyKind::cudaMemcpyHostToDevice);
+	
+	cudaMalloc(&dev_gltf_faces_offset, scene->faces_offset.size() * sizeof(unsigned int));
+	cudaMemcpy(dev_gltf_faces_offset, scene->faces_offset.data(), scene->faces_offset.size() * sizeof(unsigned int),
+		cudaMemcpyKind::cudaMemcpyHostToDevice);
 
-	cudaMemcpy(dev_gltf_verts_offset, scene->vertices_per_mesh.data(), scene->vertices_per_mesh.size() * sizeof(unsigned int),
+	cudaMalloc(&dev_gltf_materials, scene->gltfMaterials.size() * sizeof(gltf::Material));
+	cudaMemcpy(dev_gltf_materials, scene->gltfMaterials.data(), scene->gltfMaterials.size() * sizeof(gltf::Material),
 		cudaMemcpyKind::cudaMemcpyHostToDevice);
-	cudaMemcpy(dev_gltf_faces_offset, scene->faces_per_mesh.data(), scene->faces_per_mesh.size() * sizeof(unsigned int),
-		cudaMemcpyKind::cudaMemcpyHostToDevice);
+
+	// Propress textures
+	convertTexturesToTexObjs(scene->gltfTextures);
 
 	checkCUDAError("preprocess gltf data");
 }
@@ -368,7 +443,9 @@ __global__ void shadeMaterial(int iter,
 							  PathSegment* pathSegments,
 							  Material* materials,
 							  Geom* lightGeoms,
-							  int num_lights)
+							  int num_lights,
+							  const gltf::Material* gltfMaterials,
+							  const cudaTextureObject_t* texObjs)
 {
 	int idx = blockIdx.x * blockDim.x + threadIdx.x;
 	if (idx < num_paths)
@@ -391,7 +468,7 @@ __global__ void shadeMaterial(int iter,
 			else
 			{
 #if DIRECT_LIGHTING
-				scatterDirectRay(pathSegments[idx], intersection, material, rng, lightGeoms, num_lights);
+				scatterDirectRay(pathSegments[idx], intersection, material, rng, lightGeoms, num_lights, texObjs);
 #else
 				scatterIndirectRay(pathSegments[idx], intersection, material, rng);
 #endif // DIRECT_LIGHTING
@@ -453,10 +530,10 @@ void pathtrace(uchar4* pbo, int frame, int iter)
 		checkCUDAError("get first paths from cache");
 	}
 #else
-	generateRayFromCamera << <blocksPerGrid2d, blockSize2d >> > (cam, iter, traceDepth, dev_paths);
+	generateRayFromCamera<<<blocksPerGrid2d, blockSize2d>>>(cam, iter, traceDepth, dev_paths);
 	checkCUDAError("generate camera ray");
 #endif // CACHE_FIRST_BOUNCE
-
+	
 	int depth = 0;
 	PathSegment* dev_paths_end = dev_paths + pixelcount;
 	int num_paths = dev_paths_end - dev_paths;
@@ -490,7 +567,8 @@ void pathtrace(uchar4* pbo, int frame, int iter)
 				dev_gltf_vertices，
 				dev_gltf_faces_offset,
 				dev_gltf_verts_offset,
-				dev_gltf_bbox_scales
+				dev_gltf_bbox_scales,
+				dev_gltf_mat_ids
 			);
 
 			// In the first bounce, store first intersections in the cache _dev_first_intersections_ 
@@ -513,7 +591,8 @@ void pathtrace(uchar4* pbo, int frame, int iter)
 			dev_gltf_vertices，
 			dev_gltf_faces_offset,
 			dev_gltf_verts_offset,
-			dev_gltf_bbox_scales
+			dev_gltf_bbox_scales,
+			dev_gltf_mat_ids
 		);
 #endif // CACHE_FIRST_BOUNCE
 
@@ -533,7 +612,9 @@ void pathtrace(uchar4* pbo, int frame, int iter)
 			dev_paths,
 			dev_materials,
 			dev_light_geoms,
-			hst_scene->lightGeoms.size()
+			hst_scene->lightGeoms.size(),
+			dev_gltf_materials,
+			dev_gltf_tex_objs
 		);
 
 		// Stream compact away all of the terminated paths.

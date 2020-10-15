@@ -18,13 +18,10 @@ namespace gltf {
 	///
 	/// Loads glTF 2.0 mesh
 	///
-	bool LoadGLTF(const std::string& filename, float vert_scale, std::vector<Mesh<float> >* meshes,
+	bool LoadGLTF(const std::string& filename, float vert_scale, std::vector<Mesh<float>>* meshes,
 		std::vector<Material>* materials, std::vector<Texture>* textures,
 		int* total_faces, int* total_vertices)
 	{
-		// TODO(syoyo): Texture
-		// TODO(syoyo): Material
-
 		tinygltf::Model model;
 		tinygltf::TinyGLTF loader;
 		std::string err;
@@ -32,18 +29,18 @@ namespace gltf {
 		const std::string ext = GetFilePathExtension(filename);
 
 		bool ret = false;
-		if (ext.compare("glb") == 0) 
+		if (ext.compare("glb") == 0)
 		{
 			// assume binary glTF.
 			ret = loader.LoadBinaryFromFile(&model, &err, &warn, filename.c_str());
 		}
-		else 
+		else
 		{
 			// assume ascii glTF.
 			ret = loader.LoadASCIIFromFile(&model, &err, &warn, filename.c_str());
 		}
 
-		if (!warn.empty()) 
+		if (!warn.empty())
 		{
 			std::cout << "glTF parse warning: " << warn << std::endl;
 		}
@@ -59,20 +56,20 @@ namespace gltf {
 		}
 
 		std::cout << "loaded glTF file has:\n"
-				<< model.accessors.size()   << " accessors\n"
-				<< model.animations.size()  << " animations\n"
-				<< model.buffers.size()     << " buffers\n"
-				<< model.bufferViews.size() << " bufferViews\n"
-				<< model.materials.size()   << " materials\n"
-				<< model.meshes.size()      << " meshes\n"
-				<< model.nodes.size()       << " nodes\n"
-				<< model.textures.size()	<< " textures\n"
-				<< model.images.size()		<< " images\n"
-				<< model.skins.size()		<< " skins\n"
-				<< model.samplers.size()	<< " samplers\n"
-				<< model.cameras.size()		<< " cameras\n"
-				<< model.scenes.size()		<< " scenes\n"
-				<< model.lights.size()		<< " lights\n";
+			<< model.accessors.size() << " accessors\n"
+			<< model.animations.size() << " animations\n"
+			<< model.buffers.size() << " buffers\n"
+			<< model.bufferViews.size() << " bufferViews\n"
+			<< model.materials.size() << " materials\n"
+			<< model.meshes.size() << " meshes\n"
+			<< model.nodes.size() << " nodes\n"
+			<< model.textures.size() << " textures\n"
+			<< model.images.size() << " images\n"
+			<< model.skins.size() << " skins\n"
+			<< model.samplers.size() << " samplers\n"
+			<< model.cameras.size() << " cameras\n"
+			<< model.scenes.size() << " scenes\n"
+			<< model.lights.size() << " lights\n";
 
 		// Iterate through all the meshes in the glTF file
 		for (int mesh_idx = 0; mesh_idx < model.meshes.size(); mesh_idx++)
@@ -90,7 +87,7 @@ namespace gltf {
 			loadedMesh.name = gltfMesh.name;
 
 			// For each primitive
-			for (const auto& meshPrimitive : gltfMesh.primitives) 
+			for (const auto& meshPrimitive : gltfMesh.primitives)
 			{
 				// Boolean used to check if we have converted the vertex buffer format
 				bool convertedToTriangleList = false;
@@ -352,80 +349,79 @@ namespace gltf {
 							default:
 								std::cerr << "Unhandeled vector type for normal\n";
 							}
+						}
 
-							// Face varying comment on the normals is also true for the UVs
-							if (attribute.first == "TEXCOORD_0") {
-								// std::cout << "Found texture coordinates\n";
+						// Face varying comment on the normals is also true for the UVs
+						if (attribute.first == "TEXCOORD_0") {
+							// std::cout << "Found texture coordinates\n";
 
-								switch (attribAccessor.type) {
-								case TINYGLTF_TYPE_VEC2: {
-									// std::cout << "TEXTCOORD is VEC2\n";
-									switch (attribAccessor.componentType) {
-									case TINYGLTF_COMPONENT_TYPE_FLOAT: {
-										// std::cout << "TEXTCOORD is FLOAT\n";
-										v2fArray uvs(
-											arrayAdapter<v2f>(dataPtr, count, byte_stride));
+							switch (attribAccessor.type) {
+							case TINYGLTF_TYPE_VEC2: {
+								// std::cout << "TEXTCOORD is VEC2\n";
+								switch (attribAccessor.componentType) {
+								case TINYGLTF_COMPONENT_TYPE_FLOAT: {
+									// std::cout << "TEXTCOORD is FLOAT\n";
+									v2fArray uvs(arrayAdapter<v2f>(dataPtr, count, byte_stride));
 
-										for (size_t i{ 0 }; i < indices.size() / 3; ++i) {
-											// get the i'th triange's indexes
-											auto f0 = indices[3 * i + 0];
-											auto f1 = indices[3 * i + 1];
-											auto f2 = indices[3 * i + 2];
+									for (size_t i{ 0 }; i < indices.size() / 3; ++i) {
+										// get the i'th triange's indexes
+										auto f0 = indices[3 * i + 0];
+										auto f1 = indices[3 * i + 1];
+										auto f2 = indices[3 * i + 2];
 
-											// get the texture coordinates for each triangle's
-											// vertices
-											v2f uv0, uv1, uv2;
-											uv0 = uvs[f0];
-											uv1 = uvs[f1];
-											uv2 = uvs[f2];
+										// get the texture coordinates for each triangle's
+										// vertices
+										v2f uv0, uv1, uv2;
+										uv0 = uvs[f0];
+										uv1 = uvs[f1];
+										uv2 = uvs[f2];
 
-											// push them in order into the mesh data
-											loadedMesh.facevarying_uvs.push_back(uv0.x);
-											loadedMesh.facevarying_uvs.push_back(uv0.y);
+										// push them in order into the mesh data
+										loadedMesh.facevarying_uvs.push_back(uv0.x);
+										loadedMesh.facevarying_uvs.push_back(uv0.y);
 
-											loadedMesh.facevarying_uvs.push_back(uv1.x);
-											loadedMesh.facevarying_uvs.push_back(uv1.y);
+										loadedMesh.facevarying_uvs.push_back(uv1.x);
+										loadedMesh.facevarying_uvs.push_back(uv1.y);
 
-											loadedMesh.facevarying_uvs.push_back(uv2.x);
-											loadedMesh.facevarying_uvs.push_back(uv2.y);
-										}
+										loadedMesh.facevarying_uvs.push_back(uv2.x);
+										loadedMesh.facevarying_uvs.push_back(uv2.y);
+									}
 
-									} break;
-									case TINYGLTF_COMPONENT_TYPE_DOUBLE: {
-										// std::cout << "TEXTCOORD is DOUBLE\n";
-										v2dArray uvs(
-											arrayAdapter<v2d>(dataPtr, count, byte_stride));
+								} break;
+								case TINYGLTF_COMPONENT_TYPE_DOUBLE: {
+									// std::cout << "TEXTCOORD is DOUBLE\n";
+									v2dArray uvs(
+										arrayAdapter<v2d>(dataPtr, count, byte_stride));
 
-										for (size_t i{ 0 }; i < indices.size() / 3; ++i) {
-											// get the i'th triange's indexes
-											auto f0 = indices[3 * i + 0];
-											auto f1 = indices[3 * i + 1];
-											auto f2 = indices[3 * i + 2];
+									for (size_t i{ 0 }; i < indices.size() / 3; ++i) {
+										// get the i'th triange's indexes
+										auto f0 = indices[3 * i + 0];
+										auto f1 = indices[3 * i + 1];
+										auto f2 = indices[3 * i + 2];
 
-											v2d uv0, uv1, uv2;
-											uv0 = uvs[f0];
-											uv1 = uvs[f1];
-											uv2 = uvs[f2];
+										v2d uv0, uv1, uv2;
+										uv0 = uvs[f0];
+										uv1 = uvs[f1];
+										uv2 = uvs[f2];
 
-											loadedMesh.facevarying_uvs.push_back(uv0.x);
-											loadedMesh.facevarying_uvs.push_back(uv0.y);
+										loadedMesh.facevarying_uvs.push_back(uv0.x);
+										loadedMesh.facevarying_uvs.push_back(uv0.y);
 
-											loadedMesh.facevarying_uvs.push_back(uv1.x);
-											loadedMesh.facevarying_uvs.push_back(uv1.y);
+										loadedMesh.facevarying_uvs.push_back(uv1.x);
+										loadedMesh.facevarying_uvs.push_back(uv1.y);
 
-											loadedMesh.facevarying_uvs.push_back(uv2.x);
-											loadedMesh.facevarying_uvs.push_back(uv2.y);
-										}
-									} break;
-									default:
-										break;
-										// std::cerr << "unrecognized vector type for UV";
+										loadedMesh.facevarying_uvs.push_back(uv2.x);
+										loadedMesh.facevarying_uvs.push_back(uv2.y);
 									}
 								} break;
 								default:
 									break;
-									// std::cerr << "unreconized componant type for UV";
+									// std::cerr << "unrecognized vector type for UV";
 								}
+							} break;
+							default:
+								break;
+								// std::cerr << "unreconized componant type for UV";
 							}
 						}
 					}
@@ -475,9 +471,11 @@ namespace gltf {
 				loadedMesh.pivot_xform[3][2] = bCenter.z;
 				loadedMesh.pivot_xform[3][3] = 1.0f;
 
-				// TODO handle materials
-				/*for (size_t i{0}; i < loadedMesh.faces.size(); ++i)
-				  loadedMesh.material_ids.push_back(materials->at(0).id);*/
+				// handle materials
+				for (size_t i{ 0 }; i < loadedMesh.faces.size(); ++i)
+				{
+					loadedMesh.material_ids.push_back(meshPrimitive.material);
+				}
 
 				// stores 6 float values of 2 bounding box vertices
 				loadedMesh.bbox_scale.push_back(pMax.x - pMin.x);
@@ -496,21 +494,32 @@ namespace gltf {
 			}
 		}
 
-		// Iterate through all texture declaration in glTF file
-		/*for (const auto &gltfTexture : model.textures) {
-		  std::cout << "Found texture!";
-		  Texture loadedTexture;
-		  const auto &image = model.images[gltfTexture.source];
-		  loadedTexture.components = image.component;
-		  loadedTexture.width = image.width;
-		  loadedTexture.height = image.height;
+		// Iterate through all material declaration in glTF file
+		for (int i = 0; i < model.materials.size(); i++)
+		{
+			const auto& gltfMaterial = model.materials[i];
+			Material loadedMaterial;
+			loadedMaterial.id = i;
+			loadedMaterial.diffuse_texid = gltfMaterial.pbrMetallicRoughness.baseColorTexture.index;
+			loadedMaterial.normal_texid = gltfMaterial.normalTexture.index;
+			materials->push_back(loadedMaterial);
+		}
 
-		  const auto size =
-			  image.component * image.width * image.height * sizeof(unsigned char);
-		  loadedTexture.image = new unsigned char[size];
-		  memcpy(loadedTexture.image, image.image.data(), size);
-		  textures->push_back(loadedTexture);
-		}*/
+		// Iterate through all texture declaration in glTF file
+		for (const auto& gltfTexture : model.textures)
+		{
+			// std::cout << "Found texture!";
+			Texture loadedTexture;
+			const auto& image = model.images[gltfTexture.source];
+			loadedTexture.components = image.component;
+			loadedTexture.width = image.width;
+			loadedTexture.height = image.height;
+
+			const auto size = image.component * image.width * image.height * sizeof(unsigned char);
+			loadedTexture.image = new unsigned char[size];
+			memcpy(loadedTexture.image, image.image.data(), size);
+			textures->push_back(loadedTexture);
+		}
 		return ret;
 	}
 }  // namespace example
