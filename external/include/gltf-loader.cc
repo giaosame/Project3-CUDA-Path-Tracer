@@ -515,6 +515,12 @@ namespace gltf {
 			loadedTexture.width = image.width;
 			loadedTexture.height = image.height;
 
+			loadedTexture.sampler.magFilter = model.samplers[gltfTexture.sampler].magFilter;
+			loadedTexture.sampler.minFilter = model.samplers[gltfTexture.sampler].minFilter;
+			loadedTexture.sampler.wrapS = model.samplers[gltfTexture.sampler].wrapS;
+			loadedTexture.sampler.wrapT = model.samplers[gltfTexture.sampler].wrapT;
+			loadedTexture.sampler.wrapR = model.samplers[gltfTexture.sampler].wrapR;
+
 			const auto size = image.component * image.width * image.height * sizeof(unsigned char);
 			loadedTexture.image = new unsigned char[size];
 			memcpy(loadedTexture.image, image.image.data(), size);

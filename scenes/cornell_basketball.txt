@@ -113,8 +113,8 @@ SCALE       .01 10 10
 // gltf Mesh
 OBJECT 6
 mesh
-../scenes/basketball/scene.gltf
+../scenes/spitfire/scene.gltf
 MATERIAL 1
 TRANS       0 3 0
-ROTAT       0 0 0
-SCALE       1 1 1
+ROTAT       -90 0 0
+SCALE       0.02 0.02 0.02

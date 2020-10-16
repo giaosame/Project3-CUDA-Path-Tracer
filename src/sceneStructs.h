@@ -94,6 +94,8 @@ struct ShadeableIntersection {
 	float t;
 	glm::vec3 surfaceNormal;
 	glm::vec3 point;
+	glm::vec3 gltfMatColor;
+	glm::vec2 gltfUV;
 	int materialId;
 	Geom* hitGeom;
 };
@@ -121,3 +123,20 @@ __host__ __device__ inline void setGeomTransform(Geom* geom, const glm::mat4& tr
 	geom->inverseTransform = glm::inverse(trans);
 	geom->invTranspose = glm::inverseTranspose(trans);
 }
+
+enum FilterMode
+{
+	NEAREST = 9728,
+	LINEAR = 9729,
+	NEAREST_MIPMAP_NEAREST = 9984,
+	LINEAR_MIPMAP_NEAREST = 9985,
+	NEAREST_MIPMAP_LINEAR = 9986,
+	LINEAR_MIPMAP_LINEAR = 9987,
+};
+
+enum Wrap
+{
+	CLAMP_TO_EDGE = 33071,
+	MIRRORED_REPEAT = 33648,
+	REPEAT = 10497,
+};

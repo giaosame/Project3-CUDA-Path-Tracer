@@ -6,7 +6,7 @@
 #include <thrust/random.h>
 #include <thrust/partition.h>
 #include <thrust/sort.h>
-
+#include <texture_indirect_functions.h>
 #include "sceneStructs.h"
 #include "scene.h"
 #include "glm/glm.hpp"
@@ -109,6 +109,8 @@ static float* dev_gltf_bbox_scales = nullptr;
 static float* dev_gltf_uvs = nullptr;
 static unsigned int* dev_gltf_mat_ids = nullptr;
 
+// gltf texture data
+static unsigned int* dev_gltf_tex_dimensions = nullptr;
 static gltf::Material* dev_gltf_materials = nullptr;
 static cudaArray** dev_cu_tex_arrays = nullptr;
 static cudaTextureObject_t* dev_gltf_tex_objs = nullptr;
@@ -186,9 +188,8 @@ void pathtraceFree(Scene* scene)
 	{
 		if (dev_cu_tex_arrays != nullptr)
 			cudaFreeArray(dev_cu_tex_arrays[i]);
-		if (dev_gltf_tex_objs != nullptr)
-			cudaDestroyTextureObject(dev_gltf_tex_objs[i]);
 	}
+	cudaFree(dev_gltf_tex_objs);
 	checkCUDAError("pathtraceFree");
 }
 
@@ -252,9 +253,10 @@ __global__ void computeIntersections(int iter,
 									 ShadeableIntersection* intersections,
 								     unsigned int* faces,
 									 float* vertices,
+									 float* uvs,
+									 float* bbox_scales,
 									 unsigned int* num_faces,
 									 unsigned int* num_vertices,
-									 float* bbox_scales,
 									 unsigned int* gltf_mat_ids)
 {
 	int path_index = blockIdx.x * blockDim.x + threadIdx.x;
@@ -270,8 +272,10 @@ __global__ void computeIntersections(int iter,
 		int hit_geom_index = -1;
 		bool outside = true;
 
+		int tmp_gltf_mat_id = 0;
 		glm::vec3 tmp_intersect;
 		glm::vec3 tmp_normal;
+		glm::vec2 tmp_uv;
 
 		// naive parse through global geoms
 		for (int i = 0; i < geoms_size; i++)
@@ -308,8 +312,8 @@ __global__ void computeIntersections(int iter,
 #endif // BOUNDING_BOX_INTERSECTION_TEST
 				if (bbox_hit)
 				{
-					t = meshIntersectionTest(geom, pathSegment.ray, tmp_intersect, tmp_normal, outside,
-											 faces, vertices, num_faces, num_vertices, gltf_mat_ids);
+					t = meshIntersectionTest(geom, pathSegment.ray, tmp_intersect, tmp_normal, tmp_uv, tmp_gltf_mat_id, outside,
+											 faces, vertices, uvs, num_faces, num_vertices, gltf_mat_ids);
 				}
 			}
 			else if(geom.type == GeomType::HEART || geom.type == GeomType::TANGLECUBE || geom.type == GeomType::TORUS)
@@ -337,9 +341,18 @@ __global__ void computeIntersections(int iter,
 			// The ray hits something
 			intersections[path_index].t = t_min;
 			intersections[path_index].point = getPointOnRay(pathSegment.ray, t_min);
-			intersections[path_index].materialId = geoms[hit_geom_index].materialid;
 			intersections[path_index].surfaceNormal = normal;
 			intersections[path_index].hitGeom = &geoms[hit_geom_index];
+			
+			if (geoms[hit_geom_index].type == GeomType::MESH)
+			{
+				intersections[path_index].gltfUV = tmp_uv;
+				intersections[path_index].materialId = tmp_gltf_mat_id;
+			}
+			else
+			{
+				intersections[path_index].materialId = geoms[hit_geom_index].materialid;
+			}
 		}
 	}
 }
@@ -347,21 +360,35 @@ __global__ void computeIntersections(int iter,
 void convertTexturesToTexObjs(const std::vector<gltf::Texture>& gltfTextures)
 {
 	int num_texs = gltfTextures.size();
+	cudaMalloc(&dev_gltf_tex_dimensions, 2 * num_texs * sizeof(unsigned int));
 	dev_cu_tex_arrays = new cudaArray*[num_texs];
-	dev_gltf_tex_objs = new cudaTextureObject_t[num_texs];
+	//dev_gltf_tex_objs = new cudaTextureObject_t[num_texs];
+	cudaMalloc(&dev_gltf_tex_objs, num_texs * sizeof(cudaTextureObject_t));
 
+	std::vector<cudaTextureObject_t> temp_tex_objs(num_texs);
 	for (int i = 0; i < num_texs; i++)
 	{
 		const gltf::Texture& gltfTexture = gltfTextures[i];
-		cudaChannelFormatDesc channelDesc 
-			= cudaCreateChannelDesc(32, 0, 0, 0, cudaChannelFormatKind::cudaChannelFormatKindFloat);
+		cudaChannelFormatDesc channelDesc = cudaCreateChannelDesc<float4>();
 
 		cudaMallocArray(&dev_cu_tex_arrays[i], &channelDesc, gltfTexture.width, gltfTexture.height);
+		cudaMemcpy(dev_gltf_tex_dimensions + 2 * i + 0, &gltfTexture.width, sizeof(int), cudaMemcpyKind::cudaMemcpyHostToDevice);
+		cudaMemcpy(dev_gltf_tex_dimensions + 2 * i + 1, &gltfTexture.height, sizeof(int), cudaMemcpyKind::cudaMemcpyHostToDevice);
+
+		int size = gltfTexture.width * gltfTexture.height;
+		float4* textureColors = new float4[size];
+		for (int j = 0; j < size; j++)
+		{
+			textureColors[j].x = float(gltfTexture.image[4 * j + 0]);
+			textureColors[j].y = float(gltfTexture.image[4 * j + 1]);
+			textureColors[j].z = float(gltfTexture.image[4 * j + 2]);
+			textureColors[j].w = float(gltfTexture.image[4 * j + 3]);
+		}
 
 		// Copy to device memory some data located at address h_data in host memory
-		int size = gltfTexture.width * gltfTexture.height;
-		cudaMemcpyToArray(dev_cu_tex_arrays[i], 0, 0, gltfTexture.image, size * sizeof(unsigned char),
+		cudaMemcpyToArray(dev_cu_tex_arrays[i], 0, 0, textureColors, size * sizeof(float4),
 			cudaMemcpyKind::cudaMemcpyHostToDevice);
+		delete[] textureColors;
 
 		// Specify texture
 		struct cudaResourceDesc resDesc;
@@ -372,14 +399,47 @@ void convertTexturesToTexObjs(const std::vector<gltf::Texture>& gltfTextures)
 		// Specify texture object parameters
 		struct cudaTextureDesc texDesc;
 		memset(&texDesc, 0, sizeof(texDesc));
-		texDesc.addressMode[0] = cudaAddressModeWrap;
-		texDesc.addressMode[1] = cudaAddressModeWrap;
+
+		switch (gltfTexture.sampler.wrapS)
+		{
+		case CLAMP_TO_EDGE:
+			texDesc.addressMode[0] = cudaAddressModeClamp;
+			break;
+		case MIRRORED_REPEAT:
+			texDesc.addressMode[0] = cudaAddressModeMirror;
+			break;
+		case REPEAT:
+			texDesc.addressMode[0] = cudaAddressModeWrap;
+			break;
+		}
+
+		switch (gltfTexture.sampler.wrapT)
+		{
+		case CLAMP_TO_EDGE:
+			texDesc.addressMode[1] = cudaAddressModeClamp;
+			break;
+		case MIRRORED_REPEAT:
+			texDesc.addressMode[1] = cudaAddressModeMirror;
+			break;
+		case REPEAT:
+			texDesc.addressMode[1] = cudaAddressModeWrap;
+			break;
+		}
+
+		//texDesc.addressMode[0] = cudaAddressModeWrap;
+		//texDesc.addressMode[1] = cudaAddressModeWrap;
 		texDesc.filterMode = cudaFilterModeLinear;
 		texDesc.readMode = cudaReadModeElementType;
 		texDesc.normalizedCoords = 1;
 		
 		// Create texture object
-		cudaCreateTextureObject(dev_gltf_tex_objs + i, &resDesc, &texDesc, NULL);
+		cudaCreateTextureObject(&temp_tex_objs[i], &resDesc, &texDesc, NULL);
+	}
+
+	cudaMemcpy(dev_gltf_tex_objs, temp_tex_objs.data(), num_texs * sizeof(cudaTextureObject_t), cudaMemcpyKind::cudaMemcpyHostToDevice);
+	for (int i = 0; i < num_texs; i++)
+	{
+		cudaDestroyTextureObject(temp_tex_objs[i]);
 	}
 }
 
@@ -444,8 +504,9 @@ __global__ void shadeMaterial(int iter,
 							  Material* materials,
 							  Geom* lightGeoms,
 							  int num_lights,
-							  const gltf::Material* gltfMaterials,
-							  const cudaTextureObject_t* texObjs)
+							  gltf::Material* gltfMaterials,
+							  cudaTextureObject_t* texObjs,
+							  unsigned int* texDimensions)
 {
 	int idx = blockIdx.x * blockDim.x + threadIdx.x;
 	if (idx < num_paths)
@@ -456,23 +517,59 @@ __global__ void shadeMaterial(int iter,
 			thrust::default_random_engine rng = makeSeededRandomEngine(iter, idx, 0);
 			thrust::uniform_real_distribution<float> u01(0, 1);
 
-			Material material = materials[intersection.materialId];
-			glm::vec3 materialColor = material.color;
-
-			// If the material indicates that the object was a light, "light" the ray
-			if (material.emittance > 0.0f)
+			if (intersection.materialId >= 0)
 			{
-				pathSegments[idx].color *= (materialColor * material.emittance);
-				pathSegments[idx].remainingBounces = 0;
+				Material material = materials[intersection.materialId];
+				// If the material indicates that the object was a light, "light" the ray
+				if (material.emittance > 0.0f)
+				{
+					pathSegments[idx].color *= (material.color * material.emittance);
+					pathSegments[idx].remainingBounces = 0;
+				}
+				else
+				{
+#if DIRECT_LIGHTING
+					scatterDirectRay(pathSegments[idx], intersection, material, rng, lightGeoms, num_lights, texObjs);
+#else
+					scatterIndirectRay(pathSegments[idx], intersection, material, rng);
+#endif // DIRECT_LIGHTING
+				}
 			}
 			else
 			{
+				// Compute mesh's material color from texture object
+				int hitMatId = -(intersection.materialId) - 1;
+				const gltf::Material& hitMat = gltfMaterials[hitMatId];
+				const int baseColorTexIdx = hitMat.diffuse_texid;
+				const int normalTexIdx = hitMat.normal_texid;
+				if (baseColorTexIdx >= 0)
+				{
+					const unsigned int width = texDimensions[2 * baseColorTexIdx];
+					const unsigned int height = texDimensions[2 * baseColorTexIdx + 1];
+					
+					float4 color = tex2D<float4>(texObjs[baseColorTexIdx], intersection.gltfUV.x, intersection.gltfUV.y);
+					intersection.gltfMatColor = glm::vec3(color.x / 255, color.y / 255, color.z / 255);
+				}
+				else
+				{
+				}
+
+				/*if (normalTexIdx >= 0)
+				{
+					const unsigned int width = texDimensions[2 * normalTexIdx];
+					const unsigned int height = texDimensions[2 * normalTexIdx + 1];
+
+					float4 normalColor = tex2D<float4>(texObjs[normalTexIdx], intersection.gltfUV.x, intersection.gltfUV.y);
+					glm::vec3 localNormal = glm::vec3((normalColor.x - 128) / 128, (normalColor.y - 128) / 128, (normalColor.z - 128) / 128);
+					intersection.surfaceNormal = glm::normalize(multiplyMV(intersection.hitGeom->invTranspose, glm::vec4(localNormal, 0.f)));
+				}*/
+				
 #if DIRECT_LIGHTING
-				scatterDirectRay(pathSegments[idx], intersection, material, rng, lightGeoms, num_lights, texObjs);
+				scatterDirectRay(pathSegments[idx], intersection, materials[0], rng, lightGeoms, num_lights, texObjs);
 #else
-				scatterIndirectRay(pathSegments[idx], intersection, material, rng);
+				scatterIndirectRay(pathSegments[idx], intersection, materials[0], rng);
 #endif // DIRECT_LIGHTING
-			}
+			}	
 		}
 		else
 		{// If there was no intersection, color the ray black.
@@ -565,9 +662,10 @@ void pathtrace(uchar4* pbo, int frame, int iter)
 				dev_intersections,
 				dev_gltf_faces,
 				dev_gltf_vertices，
+				dev_gltf_uvs,
+				dev_gltf_bbox_scales,
 				dev_gltf_faces_offset,
 				dev_gltf_verts_offset,
-				dev_gltf_bbox_scales,
 				dev_gltf_mat_ids
 			);
 
@@ -589,9 +687,10 @@ void pathtrace(uchar4* pbo, int frame, int iter)
 			dev_intersections,
 			dev_gltf_faces,
 			dev_gltf_vertices，
+			dev_gltf_uvs,
+			dev_gltf_bbox_scales,
 			dev_gltf_faces_offset,
 			dev_gltf_verts_offset,
-			dev_gltf_bbox_scales,
 			dev_gltf_mat_ids
 		);
 #endif // CACHE_FIRST_BOUNCE
@@ -614,7 +713,8 @@ void pathtrace(uchar4* pbo, int frame, int iter)
 			dev_light_geoms,
 			hst_scene->lightGeoms.size(),
 			dev_gltf_materials,
-			dev_gltf_tex_objs
+			dev_gltf_tex_objs,
+			dev_gltf_tex_dimensions
 		);
 
 		// Stream compact away all of the terminated paths.

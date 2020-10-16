@@ -146,7 +146,15 @@ void scatterDirectRay(PathSegment& pathSegment,
             pathSegment.ray.direction = wi;
 
             float cosTheta = glm::dot(normal, wi);
-            glm::vec3 f = m.color;
+            glm::vec3 f;
+            if (intersection.hitGeom->type == GeomType::MESH)
+            {
+                f = intersection.gltfMatColor;
+            }
+            else
+            {
+                f = m.color;
+            }
             pathSegment.color = float(num_lights) * f * abs(cosTheta) / lightPdf;
         }
     }
@@ -158,7 +166,6 @@ void scatterDirectRay(PathSegment& pathSegment,
  * A perfect specular surface scatters in the reflected ray direction.
  * In order to apply multiple effects to one surface, probabilistically choose
  * between them.
- *
  */
 __host__ __device__
 void scatterIndirectRay(PathSegment& pathSegment,
@@ -189,13 +196,21 @@ void scatterIndirectRay(PathSegment& pathSegment,
         // Pure diffuse use Lambertian BRDF
         float cosTheta = glm::dot(normal, wi);
         float pdf = cosTheta * INV_PI;
-        glm::vec3 f = m.color * INV_PI;
-
         if (pdf == 0.f)
         {
             pathSegment.color = glm::vec3(0.f);
             pathSegment.remainingBounces = 0;
             return;
+        }
+
+        glm::vec3 f;
+        if (intersection.hitGeom->type == GeomType::MESH)
+        {
+            f = intersection.gltfMatColor * INV_PI;
+        }
+        else
+        {
+            f = m.color * INV_PI;
         }
 
         pathSegment.ray.direction = wi;

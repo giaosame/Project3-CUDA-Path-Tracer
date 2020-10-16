@@ -61,6 +61,14 @@ struct Texture {
   int _pad_;
   unsigned char* image;
 
+  struct {
+      int minFilter;
+      int magFilter;
+      int wrapS;
+      int wrapT;
+      int wrapR;
+  } sampler;
+
   Texture() {
     width = -1;
     height = -1;
