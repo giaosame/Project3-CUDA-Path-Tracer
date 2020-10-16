@@ -216,8 +216,8 @@ __host__ __device__ float meshIntersectionTest(const Geom& mesh,
 
 	float t = FLT_MAX;
 	bool intersected = false;
+	unsigned int hit_face_idx = 0;
 	unsigned int hit_mat_id = -1;
-	glm::vec2 hit_uv0, hit_uv1, hit_uv2;
 	glm::vec3 hit_p0, hit_p1, hit_p2;
 	glm::vec3 objspaceIntersection, objspaceNormal;
 
@@ -269,12 +269,9 @@ __host__ __device__ float meshIntersectionTest(const Geom& mesh,
 			t = res.z;
 			objspaceIntersection = getPointOnRay(rt, t);
 			objspaceNormal = glm::cross(p1 - p0, p2 - p0);
-
+			hit_face_idx = face_idx;
 			hit_mat_id = gltf_mat_ids[3 * face_idx + f_offset];
 			hit_p0 = p0; hit_p1 = p1; hit_p2 = p2;
-			hit_uv0 = glm::vec2(uvs[2 * f0], uvs[2 * f0 + 1]);
-			hit_uv1 = glm::vec2(uvs[2 * f1], uvs[2 * f1 + 1]);
-			hit_uv2 = glm::vec2(uvs[2 * f2], uvs[2 * f2 + 1]);
 		}
 	}
 
@@ -285,6 +282,11 @@ __host__ __device__ float meshIntersectionTest(const Geom& mesh,
 		const float s0 = getTriangleArea(hit_p, hit_p1, hit_p2);
 		const float s1 = getTriangleArea(hit_p, hit_p0, hit_p2);
 		const float s2 = getTriangleArea(hit_p, hit_p0, hit_p1);
+
+		const unsigned int uv_idx = 3 * hit_face_idx;
+		const glm::vec2 hit_uv0 = glm::vec2(uvs[2 * (uv_idx + 0) + 2 * f_offset], uvs[2 * (uv_idx + 0) + 1 + 2 * f_offset]);
+		const glm::vec2 hit_uv1 = glm::vec2(uvs[2 * (uv_idx + 1) + 2 * f_offset], uvs[2 * (uv_idx + 1) + 1 + 2 * f_offset]);
+		const glm::vec2 hit_uv2 = glm::vec2(uvs[2 * (uv_idx + 2) + 2 * f_offset], uvs[2 * (uv_idx + 2) + 1 + 2 * f_offset]);
 		
 		// Interpolate triangle uvs
 		intersectionUV = hit_uv0 * s0 / s + hit_uv1 * s1 / s + hit_uv2 * s2 / s;

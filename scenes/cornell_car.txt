@@ -117,4 +117,4 @@ mesh
 MATERIAL 1
 TRANS       2 2 0
 ROTAT       0 0 -45
-SCALE       0.2 0.02 0.02
+SCALE       0.02 0.02 0.02

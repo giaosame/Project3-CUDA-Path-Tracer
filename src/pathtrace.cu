@@ -22,7 +22,7 @@
 #define DEPTH_OF_FIELD false
 #define ANTI_ALIASING true
 #define CACHE_FIRST_BOUNCE !ANTI_ALIASING
-#define DIRECT_LIGHTING true
+#define DIRECT_LIGHTING false
 #define MOTIONBLUR false
 
 #define ERROR_CHECK 1
@@ -110,7 +110,6 @@ static float* dev_gltf_uvs = nullptr;
 static unsigned int* dev_gltf_mat_ids = nullptr;
 
 // gltf texture data
-static unsigned int* dev_gltf_tex_dimensions = nullptr;
 static gltf::Material* dev_gltf_materials = nullptr;
 static cudaArray** dev_cu_tex_arrays = nullptr;
 static cudaTextureObject_t* dev_gltf_tex_objs = nullptr;
@@ -360,7 +359,6 @@ __global__ void computeIntersections(int iter,
 void convertTexturesToTexObjs(const std::vector<gltf::Texture>& gltfTextures)
 {
 	int num_texs = gltfTextures.size();
-	cudaMalloc(&dev_gltf_tex_dimensions, 2 * num_texs * sizeof(unsigned int));
 	dev_cu_tex_arrays = new cudaArray*[num_texs];
 	//dev_gltf_tex_objs = new cudaTextureObject_t[num_texs];
 	cudaMalloc(&dev_gltf_tex_objs, num_texs * sizeof(cudaTextureObject_t));
@@ -370,10 +368,7 @@ void convertTexturesToTexObjs(const std::vector<gltf::Texture>& gltfTextures)
 	{
 		const gltf::Texture& gltfTexture = gltfTextures[i];
 		cudaChannelFormatDesc channelDesc = cudaCreateChannelDesc<float4>();
-
 		cudaMallocArray(&dev_cu_tex_arrays[i], &channelDesc, gltfTexture.width, gltfTexture.height);
-		cudaMemcpy(dev_gltf_tex_dimensions + 2 * i + 0, &gltfTexture.width, sizeof(int), cudaMemcpyKind::cudaMemcpyHostToDevice);
-		cudaMemcpy(dev_gltf_tex_dimensions + 2 * i + 1, &gltfTexture.height, sizeof(int), cudaMemcpyKind::cudaMemcpyHostToDevice);
 
 		int size = gltfTexture.width * gltfTexture.height;
 		float4* textureColors = new float4[size];
@@ -426,8 +421,6 @@ void convertTexturesToTexObjs(const std::vector<gltf::Texture>& gltfTextures)
 			break;
 		}
 
-		//texDesc.addressMode[0] = cudaAddressModeWrap;
-		//texDesc.addressMode[1] = cudaAddressModeWrap;
 		texDesc.filterMode = cudaFilterModeLinear;
 		texDesc.readMode = cudaReadModeElementType;
 		texDesc.normalizedCoords = 1;
@@ -436,9 +429,10 @@ void convertTexturesToTexObjs(const std::vector<gltf::Texture>& gltfTextures)
 		cudaCreateTextureObject(&temp_tex_objs[i], &resDesc, &texDesc, NULL);
 	}
 
-	cudaMemcpy(dev_gltf_tex_objs, temp_tex_objs.data(), num_texs * sizeof(cudaTextureObject_t), cudaMemcpyKind::cudaMemcpyHostToDevice);
+	cudaMemcpy(dev_gltf_tex_objs, temp_tex_objs.data(), num_texs * sizeof(cudaTextureObject_t),
+		cudaMemcpyKind::cudaMemcpyHostToDevice);
 	for (int i = 0; i < num_texs; i++)
-	{
+	{// Destroy texture objects after copying them into dev_gltf_tex_objs
 		cudaDestroyTextureObject(temp_tex_objs[i]);
 	}
 }
@@ -505,8 +499,7 @@ __global__ void shadeMaterial(int iter,
 							  Geom* lightGeoms,
 							  int num_lights,
 							  gltf::Material* gltfMaterials,
-							  cudaTextureObject_t* texObjs,
-							  unsigned int* texDimensions)
+							  cudaTextureObject_t* texObjs)
 {
 	int idx = blockIdx.x * blockDim.x + threadIdx.x;
 	if (idx < num_paths)
@@ -544,25 +537,20 @@ __global__ void shadeMaterial(int iter,
 				const int normalTexIdx = hitMat.normal_texid;
 				if (baseColorTexIdx >= 0)
 				{
-					const unsigned int width = texDimensions[2 * baseColorTexIdx];
-					const unsigned int height = texDimensions[2 * baseColorTexIdx + 1];
-					
 					float4 color = tex2D<float4>(texObjs[baseColorTexIdx], intersection.gltfUV.x, intersection.gltfUV.y);
+					//printf("x = %f, y = %f\n", intersection.gltfUV.x, intersection.gltfUV.y);
 					intersection.gltfMatColor = glm::vec3(color.x / 255, color.y / 255, color.z / 255);
 				}
 				else
 				{
 				}
 
-				/*if (normalTexIdx >= 0)
+				if (normalTexIdx >= 0)
 				{
-					const unsigned int width = texDimensions[2 * normalTexIdx];
-					const unsigned int height = texDimensions[2 * normalTexIdx + 1];
-
 					float4 normalColor = tex2D<float4>(texObjs[normalTexIdx], intersection.gltfUV.x, intersection.gltfUV.y);
 					glm::vec3 localNormal = glm::vec3((normalColor.x - 128) / 128, (normalColor.y - 128) / 128, (normalColor.z - 128) / 128);
 					intersection.surfaceNormal = glm::normalize(multiplyMV(intersection.hitGeom->invTranspose, glm::vec4(localNormal, 0.f)));
-				}*/
+				}
 				
 #if DIRECT_LIGHTING
 				scatterDirectRay(pathSegments[idx], intersection, materials[0], rng, lightGeoms, num_lights, texObjs);
@@ -713,8 +701,7 @@ void pathtrace(uchar4* pbo, int frame, int iter)
 			dev_light_geoms,
 			hst_scene->lightGeoms.size(),
 			dev_gltf_materials,
-			dev_gltf_tex_objs,
-			dev_gltf_tex_dimensions
+			dev_gltf_tex_objs
 		);
 
 		// Stream compact away all of the terminated paths.
