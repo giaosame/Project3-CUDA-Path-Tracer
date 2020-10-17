@@ -201,6 +201,8 @@ __host__ __device__ float meshIntersectionTest(const Geom& mesh,
 											   const Ray& r,
 											   glm::vec3& intersectionPoint,
 											   glm::vec3& normal,
+											   glm::vec3& tangent,
+											   glm::vec3& bitangent,
 											   glm::vec2& intersectionUV,
 											   int& intersectionMatId,
 											   bool& outside,
@@ -283,10 +285,22 @@ __host__ __device__ float meshIntersectionTest(const Geom& mesh,
 		const float s1 = getTriangleArea(hit_p, hit_p0, hit_p2);
 		const float s2 = getTriangleArea(hit_p, hit_p0, hit_p1);
 
+		// Get the uv on the hit face
 		const unsigned int uv_idx = 3 * hit_face_idx;
 		const glm::vec2 hit_uv0 = glm::vec2(uvs[2 * (uv_idx + 0) + 2 * f_offset], uvs[2 * (uv_idx + 0) + 1 + 2 * f_offset]);
 		const glm::vec2 hit_uv1 = glm::vec2(uvs[2 * (uv_idx + 1) + 2 * f_offset], uvs[2 * (uv_idx + 1) + 1 + 2 * f_offset]);
 		const glm::vec2 hit_uv2 = glm::vec2(uvs[2 * (uv_idx + 2) + 2 * f_offset], uvs[2 * (uv_idx + 2) + 1 + 2 * f_offset]);
+
+		// Compute tangent and bitangent based on uv
+		const glm::vec3 delta_p1 = hit_p1 - hit_p0;
+		const glm::vec3 delta_p2 = hit_p2 - hit_p0;
+		const glm::vec2 delta_uv1 = hit_uv1 - hit_uv0;
+		const glm::vec2 delta_uv2 = hit_uv2 - hit_uv0;
+
+		tangent = (delta_uv2.y * delta_p1 - delta_uv1.y * delta_p2) / (delta_uv2.y * delta_uv1.x - delta_uv1.y * delta_uv2.x + 0.0001f);
+		bitangent = (delta_p2 - delta_uv2.x * tangent) / (delta_uv2.y + 0.0001f);
+		tangent = glm::normalize(multiplyMV(mesh.invTranspose, glm::vec4(tangent, 0.f)));
+		bitangent = glm::normalize(multiplyMV(mesh.invTranspose, glm::vec4(bitangent, 0.f)));
 		
 		// Interpolate triangle uvs
 		intersectionUV = hit_uv0 * s0 / s + hit_uv1 * s1 / s + hit_uv2 * s2 / s;

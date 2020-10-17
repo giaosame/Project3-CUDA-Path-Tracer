@@ -166,6 +166,7 @@ void scatterDirectRay(PathSegment& pathSegment,
  * A perfect specular surface scatters in the reflected ray direction.
  * In order to apply multiple effects to one surface, probabilistically choose
  * between them.
+ *
  */
 __host__ __device__
 void scatterIndirectRay(PathSegment& pathSegment,

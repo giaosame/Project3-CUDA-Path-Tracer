@@ -234,7 +234,6 @@ __global__ void generateRayFromCamera(Camera cam, int iter, int traceDepth, Path
 			segment.ray.direction = glm::normalize(pFocus - segment.ray.origin); 
 		}
 #endif // DEPTH_OF_FIELD
-
 		segment.pixelIndex = index;
 		segment.remainingBounces = traceDepth;
 	}
@@ -274,6 +273,8 @@ __global__ void computeIntersections(int iter,
 		int tmp_gltf_mat_id = 0;
 		glm::vec3 tmp_intersect;
 		glm::vec3 tmp_normal;
+		glm::vec3 tmp_tangent;
+		glm::vec3 tmp_bitangent;
 		glm::vec2 tmp_uv;
 
 		// naive parse through global geoms
@@ -311,8 +312,8 @@ __global__ void computeIntersections(int iter,
 #endif // BOUNDING_BOX_INTERSECTION_TEST
 				if (bbox_hit)
 				{
-					t = meshIntersectionTest(geom, pathSegment.ray, tmp_intersect, tmp_normal, tmp_uv, tmp_gltf_mat_id, outside,
-											 faces, vertices, uvs, num_faces, num_vertices, gltf_mat_ids);
+					t = meshIntersectionTest(geom, pathSegment.ray, tmp_intersect, tmp_normal, tmp_tangent, tmp_bitangent, tmp_uv, 
+											 tmp_gltf_mat_id, outside, faces, vertices, uvs, num_faces, num_vertices, gltf_mat_ids);
 				}
 			}
 			else if(geom.type == GeomType::HEART || geom.type == GeomType::TANGLECUBE || geom.type == GeomType::TORUS)
@@ -347,6 +348,8 @@ __global__ void computeIntersections(int iter,
 			{
 				intersections[path_index].gltfUV = tmp_uv;
 				intersections[path_index].materialId = tmp_gltf_mat_id;
+				intersections[path_index].tangent = tmp_tangent;
+				intersections[path_index].bitangent = tmp_bitangent;
 			}
 			else
 			{
@@ -549,7 +552,10 @@ __global__ void shadeMaterial(int iter,
 				{
 					float4 normalColor = tex2D<float4>(texObjs[normalTexIdx], intersection.gltfUV.x, intersection.gltfUV.y);
 					glm::vec3 localNormal = glm::vec3((normalColor.x - 128) / 128, (normalColor.y - 128) / 128, (normalColor.z - 128) / 128);
-					intersection.surfaceNormal = glm::normalize(multiplyMV(intersection.hitGeom->invTranspose, glm::vec4(localNormal, 0.f)));
+					
+					intersection.surfaceNormal = glm::normalize(intersection.tangent * localNormal.x + 
+																intersection.bitangent * localNormal.y + 
+																intersection.surfaceNormal * localNormal.z);
 				}
 				
 #if DIRECT_LIGHTING

@@ -116,5 +116,5 @@ mesh
 ../scenes/car/scene.gltf
 MATERIAL 1
 TRANS       2 2 0
-ROTAT       0 0 -45
+ROTAT       0 30 0
 SCALE       0.02 0.02 0.02

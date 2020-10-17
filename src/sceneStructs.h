@@ -93,6 +93,8 @@ struct PathSegment {
 struct ShadeableIntersection {
 	float t;
 	glm::vec3 surfaceNormal;
+	glm::vec3 tangent;
+	glm::vec3 bitangent;
 	glm::vec3 point;
 	glm::vec3 gltfMatColor;
 	glm::vec2 gltfUV;
