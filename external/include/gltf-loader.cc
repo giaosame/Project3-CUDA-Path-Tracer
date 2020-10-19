@@ -500,6 +500,9 @@ namespace gltf {
 			const auto& gltfMaterial = model.materials[i];
 			Material loadedMaterial;
 			loadedMaterial.id = i;
+			loadedMaterial.diffuse[0] = gltfMaterial.pbrMetallicRoughness.baseColorFactor[0];
+			loadedMaterial.diffuse[1] = gltfMaterial.pbrMetallicRoughness.baseColorFactor[1];
+			loadedMaterial.diffuse[2] = gltfMaterial.pbrMetallicRoughness.baseColorFactor[2];
 			loadedMaterial.diffuse_texid = gltfMaterial.pbrMetallicRoughness.baseColorTexture.index;
 			loadedMaterial.normal_texid = gltfMaterial.normalTexture.index;
 			materials->push_back(loadedMaterial);

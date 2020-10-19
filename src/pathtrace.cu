@@ -19,7 +19,7 @@
 
 
 #define BOUNDING_BOX_INTERSECTION_TEST true
-#define DEPTH_OF_FIELD false
+#define DEPTH_OF_FIELD true
 #define ANTI_ALIASING true
 #define CACHE_FIRST_BOUNCE !ANTI_ALIASING
 #define DIRECT_LIGHTING false
@@ -264,13 +264,13 @@ __global__ void computeIntersections(int iter,
 		const PathSegment& pathSegment = pathSegments[path_index];
 
 		float t;
-		glm::vec3 intersect_point;
-		glm::vec3 normal;
 		float t_min = FLT_MAX;
 		int hit_geom_index = -1;
+		int tmp_gltf_mat_id = 0;
 		bool outside = true;
 
-		int tmp_gltf_mat_id = 0;
+		glm::vec3 intersect_point;
+		glm::vec3 normal;
 		glm::vec3 tmp_intersect;
 		glm::vec3 tmp_normal;
 		glm::vec3 tmp_tangent;
@@ -300,10 +300,10 @@ __global__ void computeIntersections(int iter,
 			{
 				bool bbox_hit = true;
 #if BOUNDING_BOX_INTERSECTION_TEST
-				int i = geom.meshid;
+				int mesh_idx = geom.meshid;
 				Geom bbox_geom;
 				bbox_geom.type = GeomType::CUBE;
-				glm::vec3 bbox_scale(bbox_scales[i * 3 + 0], bbox_scales[i * 3 + 1], bbox_scales[i * 3 + 2]);
+				glm::vec3 bbox_scale(bbox_scales[mesh_idx * 3 + 0], bbox_scales[mesh_idx * 3 + 1], bbox_scales[mesh_idx * 3 + 2]);
 
 				setGeomTransform(&bbox_geom, geom.transform * getTansformation(glm::vec3(0), glm::vec3(0), bbox_scale));
 				t = boxIntersectionTest(bbox_geom, pathSegment.ray, tmp_intersect, tmp_normal, outside);
@@ -546,13 +546,17 @@ __global__ void shadeMaterial(int iter,
 				}
 				else
 				{
+					// use diffuse base color directly
+					intersection.gltfMatColor = glm::vec3(hitMat.diffuse[0], hitMat.diffuse[1], hitMat.diffuse[2]);
 				}
-
+				
 				if (normalTexIdx >= 0)
 				{
+
 					float4 normalColor = tex2D<float4>(texObjs[normalTexIdx], intersection.gltfUV.x, intersection.gltfUV.y);
-					glm::vec3 localNormal = glm::vec3((normalColor.x - 128) / 128, (normalColor.y - 128) / 128, (normalColor.z - 128) / 128);
-					
+					glm::vec3 localNormal = glm::vec3((normalColor.x - 128) / 128, 
+													  (normalColor.y - 128) / 128, 
+													  (normalColor.z - 128) / 128);
 					intersection.surfaceNormal = glm::normalize(intersection.tangent * localNormal.x + 
 																intersection.bitangent * localNormal.y + 
 																intersection.surfaceNormal * localNormal.z);

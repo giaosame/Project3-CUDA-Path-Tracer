@@ -155,6 +155,7 @@ void scatterDirectRay(PathSegment& pathSegment,
             {
                 f = m.color;
             }
+
             pathSegment.color = float(num_lights) * f * abs(cosTheta) / lightPdf;
         }
     }

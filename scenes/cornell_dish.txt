@@ -1,0 +1,130 @@
+// Emissive material (light)
+MATERIAL 0
+RGB         1 1 1
+SPECEX      0
+SPECRGB     0 0 0
+REFL        0
+REFR        0
+REFRIOR     0
+EMITTANCE   10
+
+// Diffuse white
+MATERIAL 1
+RGB         .98 .98 .98
+SPECEX      0
+SPECRGB     0 0 0
+REFL        0
+REFR        0
+REFRIOR     0
+EMITTANCE   0
+
+// Diffuse red
+MATERIAL 2
+RGB         .85 .35 .35
+SPECEX      0
+SPECRGB     0 0 0
+REFL        0
+REFR        0
+REFRIOR     0
+EMITTANCE   0
+
+// Diffuse green
+MATERIAL 3
+RGB         .35 .85 .35
+SPECEX      0
+SPECRGB     0 0 0
+REFL        0
+REFR        0
+REFRIOR     0
+EMITTANCE   0
+
+// Emissive light 2
+MATERIAL 4
+RGB         1 1 0.75
+SPECEX      0
+SPECRGB     0 0 0
+REFL        0
+REFR        0
+REFRIOR     0
+EMITTANCE   5
+
+// glass white
+MATERIAL 5
+RGB         .98 .98 .98
+SPECEX      0
+SPECRGB     .7 .8 1
+REFL        0
+REFR        1.35
+REFRIOR     0
+EMITTANCE   0
+
+// Camera
+CAMERA
+RES         1280 640
+FOVY        45
+ITERATIONS  5000
+DEPTH       8
+FOCALDIST   0
+LENSRADIUS  0
+FILE        cornell
+EYE         0.0 5 10
+LOOKAT      0 5 -5
+UP          0 1 0
+
+
+// Ceiling light
+OBJECT 0
+cube
+material 0
+TRANS       0 500 0
+ROTAT       0 0 0
+SCALE       150 .3 150
+
+// Floor
+OBJECT 1
+cube
+material 1
+TRANS       0 0 0
+ROTAT       0 0 0
+SCALE       500 .01 500
+
+// Ceiling
+OBJECT 2
+cube
+material 1
+TRANS       0 500 0
+ROTAT       0 0 90
+SCALE       .01 500 500
+
+// Back wall
+OBJECT 3
+cube
+material 1
+TRANS       0 250 -250
+ROTAT       0 90 0
+SCALE       .01 500 500
+
+// Left wall
+OBJECT 4
+cube
+material 1
+TRANS       -250 250 0
+ROTAT       0 0 0
+SCALE       .01 500 500
+
+// Right wall
+OBJECT 5
+cube
+material 1
+TRANS       250 250 0
+ROTAT       0 0 0
+SCALE       .01 500 500
+
+// gltf Mesh
+OBJECT 6
+mesh
+../scenes/dish/scene.gltf
+MATERIAL 1
+TRANS       -4 5 -5
+ROTAT       -90 0 0
+SCALE       1 1 1

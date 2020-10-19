@@ -214,7 +214,7 @@ __host__ __device__ float meshIntersectionTest(const Geom& mesh,
 											   unsigned int* gltf_mat_ids)
 {
 	// Initialize to default material
-	intersectionMatId = mesh.materialid;
+	// intersectionMatId = mesh.materialid;
 
 	float t = FLT_MAX;
 	bool intersected = false;
