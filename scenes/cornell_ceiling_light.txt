@@ -6,7 +6,7 @@ SPECRGB     0 0 0
 REFL        0
 REFR        0
 REFRIOR     0
-EMITTANCE   10
+EMITTANCE   1
 
 // Diffuse white
 MATERIAL 1
@@ -38,37 +38,27 @@ REFR        0
 REFRIOR     0
 EMITTANCE   0
 
-// Emissive light 2
+// Specular white
 MATERIAL 4
-RGB         1 1 0.75
-SPECEX      0
-SPECRGB     0 0 0
-REFL        0
-REFR        0
-REFRIOR     0
-EMITTANCE   5
-
-// glass white
-MATERIAL 5
 RGB         .98 .98 .98
 SPECEX      0
-SPECRGB     .7 .8 1
-REFL        0
-REFR        1.35
+SPECRGB     .98 .98 .98
+REFL        1
+REFR        0
 REFRIOR     0
 EMITTANCE   0
 
 // Camera
 CAMERA
-RES         1200 675
+RES         800 800
 FOVY        45
-ITERATIONS  5000
+ITERATIONS  100
 DEPTH       8
 FOCALDIST   0
 LENSRADIUS  0
 FILE        cornell
-EYE         0.0 5 -230
-LOOKAT      -4 5 -240
+EYE         0.0 5 10.5
+LOOKAT      0 5 0
 UP          0 1 0
 
 
@@ -76,9 +66,9 @@ UP          0 1 0
 OBJECT 0
 cube
 material 0
-TRANS       0 500 0
+TRANS       0 10 0
 ROTAT       0 0 0
-SCALE       150 .3 150
+SCALE       10 .3 10
 
 // Floor
 OBJECT 1
@@ -86,61 +76,44 @@ cube
 material 1
 TRANS       0 0 0
 ROTAT       0 0 0
-SCALE       500 .01 500
+SCALE       10 .01 10
 
 // Ceiling
 OBJECT 2
 cube
 material 1
-TRANS       0 500 0
+TRANS       0 10 0
 ROTAT       0 0 90
-SCALE       .01 500 500
+SCALE       .01 10 10
 
 // Back wall
 OBJECT 3
 cube
 material 1
-TRANS       0 250 -250
+TRANS       0 5 -5
 ROTAT       0 90 0
-SCALE       .01 500 500
+SCALE       .01 10 10
 
 // Left wall
 OBJECT 4
 cube
-material 1
-TRANS       -250 250 0
+material 2
+TRANS       -5 5 0
 ROTAT       0 0 0
-SCALE       .01 500 500
+SCALE       .01 10 10
 
 // Right wall
 OBJECT 5
 cube
-material 1
-TRANS       250 250 0
+material 3
+TRANS       5 5 0
 ROTAT       0 0 0
-SCALE       .01 500 500
+SCALE       .01 10 10
 
-// Floor water
+// Sphere
 OBJECT 6
-cube
-material 5
-TRANS       0 -2 0
+sphere
+material 4
+TRANS       -1 4 -1
 ROTAT       0 0 0
-SCALE       500 10 500
-
-// Mesh front light
-OBJECT 7
-cube
-MATERIAL 4
-TRANS       -4 10 -225
-ROTAT       0 0 0
-SCALE       10 10 .3
-
-// gltf Mesh
-OBJECT 8
-mesh
-../scenes/galleon/scene.gltf
-MATERIAL 1
-TRANS       -5 5 -240
-ROTAT       0 240 0
-SCALE       0.006 0.006 0.006
+SCALE       3 3 3

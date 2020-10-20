@@ -86,6 +86,23 @@ __global__ void sendImageToPBO(uchar4* pbo, glm::ivec2 resolution,
 	}
 }
 
+__global__ void gbufferToPBO(uchar4* pbo, glm::ivec2 resolution, GBufferPixel* gBuffer) 
+{
+	int x = (blockIdx.x * blockDim.x) + threadIdx.x;
+	int y = (blockIdx.y * blockDim.y) + threadIdx.y;
+
+	if (x < resolution.x && y < resolution.y) {
+		int index = x + (y * resolution.x);
+		float timeToIntersect = gBuffer[index].t * 256.0;
+
+		pbo[index].w = 0;
+		pbo[index].x = timeToIntersect;
+		pbo[index].y = timeToIntersect;
+		pbo[index].z = timeToIntersect;
+	}
+}
+
+
 static float gpu_time_accumulator = 0.0f;
 
 static Scene* hst_scene = nullptr;
@@ -95,6 +112,7 @@ static Geom* dev_light_geoms = nullptr;
 static Material* dev_materials = nullptr;
 static PathSegment* dev_paths = nullptr;
 static ShadeableIntersection* dev_intersections = nullptr;
+static GBufferPixel* dev_gBuffer = nullptr;
 
 // Extra static variables for device memory, declared here by me 
 static PathSegment* dev_first_paths = nullptr;
@@ -741,4 +759,28 @@ void pathtrace(uchar4* pbo, int frame, int iter)
 	cudaMemcpy(hst_scene->state.image.data(), dev_image, pixelcount * sizeof(glm::vec3), cudaMemcpyDeviceToHost);
 
 	checkCUDAError("pathtrace");
+}
+
+// This kernel "post-processes" the gbuffer/gbuffers into something that you can visualize for debugging.
+void showGBuffer(uchar4* pbo) {
+	const Camera& cam = hst_scene->state.camera;
+	const dim3 blockSize2d(8, 8);
+	const dim3 blocksPerGrid2d(
+		(cam.resolution.x + blockSize2d.x - 1) / blockSize2d.x,
+		(cam.resolution.y + blockSize2d.y - 1) / blockSize2d.y);
+
+	// CHECKITOUT: process the gbuffer results and send them to OpenGL buffer for visualization
+	gbufferToPBO << <blocksPerGrid2d, blockSize2d >> > (pbo, cam.resolution, dev_gBuffer);
+}
+
+void showImage(uchar4* pbo, int iter)
+{
+	const Camera& cam = hst_scene->state.camera;
+	const dim3 blockSize2d(8, 8);
+	const dim3 blocksPerGrid2d(
+		(cam.resolution.x + blockSize2d.x - 1) / blockSize2d.x,
+		(cam.resolution.y + blockSize2d.y - 1) / blockSize2d.y);
+
+	// Send results to OpenGL buffer for rendering
+	sendImageToPBO <<<blocksPerGrid2d, blockSize2d >>> (pbo, cam.resolution, iter, dev_image);
 }

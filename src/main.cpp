@@ -11,6 +11,18 @@ static bool middleMousePressed = false;
 static double lastX;
 static double lastY;
 
+// Simple UI parameters
+int ui_iterations = 0;
+int startupIterations = 0;
+int lastLoopIterations = 0;
+bool ui_showGbuffer = false;
+bool ui_denoise = false;
+int ui_filterSize = 80;
+float ui_colorWeight = 0.45f;
+float ui_normalWeight = 0.35f;
+float ui_positionWeight = 0.2f;
+bool ui_saveAndExit = false;
+
 static bool camchanged = true;
 static float dtheta = 0, dphi = 0;
 static glm::vec3 cammove;
@@ -112,6 +124,7 @@ void runCuda()
 		cameraPosition.x = zoom * sin(phi) * sin(theta);
 		cameraPosition.y = zoom * cos(theta);
 		cameraPosition.z = zoom * cos(phi) * sin(theta);
+		// cout << "cameraPosition: (" << cameraPosition.x << ", " << cameraPosition.y << ", " << cameraPosition.z << endl;
 
 		cam.view = -glm::normalize(cameraPosition);
 		glm::vec3 v = cam.view;
