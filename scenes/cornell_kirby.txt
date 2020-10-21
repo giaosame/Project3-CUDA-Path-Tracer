@@ -340,7 +340,7 @@ OBJECT 19
 mesh
 ../scenes/kirby/scene.gltf
 material 20
-TRANS       0 1 -478
-ROTAT       10 -58 0
-SCALE       2.25 2.25 2.25
+TRANS       0 1 -478.5
+ROTAT       10 -48 0
+SCALE       2.5 2.5 2.5
 

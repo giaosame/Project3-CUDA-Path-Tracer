@@ -194,7 +194,7 @@ void drawGui(int windowWidth, int windowHeight) {
 
     // Dear imgui define
     ImVec2 minSize(300.f, 220.f);
-    ImVec2 maxSize((float)windowWidth * 0.5, (float)windowHeight * 0.3);
+    ImVec2 maxSize((float)windowWidth * 0.5, (float)windowHeight * 0.4);
     ImGui::SetNextWindowSizeConstraints(minSize, maxSize);
 
     ImGui::SetNextWindowPos(ui_hide ? ImVec2(-1000.f, -1000.f) : ImVec2(0.0f, 0.0f));
@@ -211,7 +211,7 @@ void drawGui(int windowWidth, int windowHeight) {
 
     ImGui::Checkbox("Denoise", &ui_denoise);
 
-    ImGui::SliderInt("Filter Size", &ui_filterSize, 0, 100);
+    ImGui::SliderInt("A Trous Iters", &ui_atrousIterations, 0, 10);
     ImGui::SliderFloat("Color Weight", &ui_colorWeight, 0.0f, 10.0f);
     ImGui::SliderFloat("Normal Weight", &ui_normalWeight, 0.0f, 10.0f);
     ImGui::SliderFloat("Position Weight", &ui_positionWeight, 0.0f, 10.0f);
@@ -231,7 +231,6 @@ void drawGui(int windowWidth, int windowHeight) {
     ImGui::Render();
     ImGui_ImplOpenGL3_RenderDrawData(ImGui::GetDrawData());
 }
-
 
 void mainLoop() 
 {
