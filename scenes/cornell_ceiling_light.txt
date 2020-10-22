@@ -6,7 +6,7 @@ SPECRGB     0 0 0
 REFL        0
 REFR        0
 REFRIOR     0
-EMITTANCE   5
+EMITTANCE   1
 
 // Diffuse white
 MATERIAL 1
@@ -52,7 +52,7 @@ EMITTANCE   0
 CAMERA
 RES         800 800
 FOVY        45
-ITERATIONS  50
+ITERATIONS  100
 DEPTH       8
 FOCALDIST   0
 LENSRADIUS  0
@@ -68,7 +68,7 @@ cube
 material 0
 TRANS       0 10 0
 ROTAT       0 0 0
-SCALE       3 .3 3
+SCALE       10 .3 10
 
 // Floor
 OBJECT 1
@@ -113,7 +113,7 @@ SCALE       .01 10 10
 // Sphere
 OBJECT 6
 sphere
-MATERIAL 4
+material 4
 TRANS       -1 4 -1
 ROTAT       0 0 0
 SCALE       3 3 3

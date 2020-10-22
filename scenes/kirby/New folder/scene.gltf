@@ -127,14 +127,14 @@
       "componentType": 5126,
       "count": 3700,
       "max": [
-        0.6905440092086792,
+        0.67077797651290894,
         0.99413001537322998,
-        0.72894400358200073
+        0.79371500015258789
       ],
       "min": [
-        -0.24074800312519073,
+        -0.21451500058174133,
         0.43646600842475891,
-        -0.55252397060394287
+        -0.68325501680374146
       ],
       "type": "VEC3"
     },
@@ -312,8 +312,8 @@
     "extras": {
       "author": "giaosame (https://sketchfab.com/qiaosen.chen)",
       "license": "COPYRIGHT TO giaosame",
-      "source": "https://sketchfab.com/3d-models/model-a2afb64023b1434a97b420a514e70ca8",
-      "title": "model"
+      "source": "https://sketchfab.com/3d-models/model-2be5cfc0afca49d48f73fcc2381a9cac",
+      "title": "Model"
     },
     "generator": "Sketchfab-9.52.0",
     "version": "2.0"
@@ -366,7 +366,7 @@
       "pbrMetallicRoughness": {
         "baseColorFactor": [
           1,
-          0.73333300000000001,
+          0.65098,
           0,
           1
         ],
@@ -408,8 +408,8 @@
       "pbrMetallicRoughness": {
         "baseColorFactor": [
           1,
-          0.031372499999999998,
-          0.16078400000000001,
+          0,
+          0.168627,
           1
         ],
         "metallicFactor": 0,
@@ -426,9 +426,9 @@
       "name": "Tongue",
       "pbrMetallicRoughness": {
         "baseColorFactor": [
-          0.98823499999999997,
-          0.058823500000000001,
-          0.058823500000000001,
+          0.94117600000000001,
+          0.121569,
+          0.121569,
           1
         ],
         "metallicFactor": 0,
@@ -445,9 +445,9 @@
       "name": "Mouth",
       "pbrMetallicRoughness": {
         "baseColorFactor": [
-          0.27843099999999998,
-          0.027451,
-          0.027451,
+          0.40000000000000002,
+          0,
+          0,
           1
         ],
         "metallicFactor": 0,
@@ -580,7 +580,7 @@
       "children": [
         5
       ],
-      "name": "kirby_root_0"
+      "name": "Kirby.mtl.mtl.mtl_root_0"
     },
     {
       "children": [

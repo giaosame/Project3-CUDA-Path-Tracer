@@ -2,13 +2,22 @@
 #include <ctime>
 #include "main.h"
 #include "preview.h"
+#include "../imgui/imgui.h"
+#include "../imgui/imgui_impl_glfw.h"
+#include "../imgui/imgui_impl_opengl3.h"
+
+#include "../imgui/imgui.h"
+#include "../imgui/imgui_impl_glfw.h"
+#include "../imgui/imgui_impl_opengl3.h"
+
+#define IMGUI_IMPL_OPENGL_LOADER_GLEW
 
 GLuint positionLocation = 0;
 GLuint texcoordsLocation = 1;
 GLuint pbo;
 GLuint displayImage;
 
-GLFWwindow *window;
+GLFWwindow* window;
 
 std::string currentTimeString() {
     time_t now;
@@ -27,7 +36,7 @@ void initTextures() {
     glBindTexture(GL_TEXTURE_2D, displayImage);
     glTexParameteri(GL_TEXTURE_2D, GL_TEXTURE_MAG_FILTER, GL_NEAREST);
     glTexParameteri(GL_TEXTURE_2D, GL_TEXTURE_MIN_FILTER, GL_NEAREST);
-    glTexImage2D( GL_TEXTURE_2D, 0, GL_RGBA8, width, height, 0, GL_BGRA, GL_UNSIGNED_BYTE, NULL);
+    glTexImage2D(GL_TEXTURE_2D, 0, GL_RGBA8, width, height, 0, GL_BGRA, GL_UNSIGNED_BYTE, NULL);
 }
 
 void initVAO(void) {
@@ -65,7 +74,7 @@ void initVAO(void) {
 }
 
 GLuint initShader() {
-    const char *attribLocations[] = { "Position", "Texcoords" };
+    const char* attribLocations[] = { "Position", "Texcoords" };
     GLuint program = glslUtility::createDefaultProgram(attribLocations, 2);
     GLint location;
 
@@ -165,16 +174,86 @@ bool init() {
     glUseProgram(passthroughProgram);
     glActiveTexture(GL_TEXTURE0);
 
+    // Setup Dear ImGui context
+    IMGUI_CHECKVERSION();
+    ImGui::CreateContext();
+
+    //// Setup Dear ImGui style
+    ImGui::StyleColorsDark();
+
+    // Setup Platform/Renderer bindings
+    ImGui_ImplGlfw_InitForOpenGL(window, true);
+    ImGui_ImplOpenGL3_Init("#version 130");
+
     return true;
 }
 
-void mainLoop() 
+static ImGuiWindowFlags windowFlags = ImGuiWindowFlags_None | ImGuiWindowFlags_NoMove;
+static bool ui_hide = false;
+
+void drawGui(int windowWidth, int windowHeight)
+{
+    // Dear imgui new frame
+    glBindBuffer(GL_PIXEL_UNPACK_BUFFER, 0);
+    ImGui_ImplOpenGL3_NewFrame();
+    ImGui_ImplGlfw_NewFrame();
+    ImGui::NewFrame();
+
+    // Dear imgui define
+    ImVec2 minSize(300.f, 200.f);
+    ImVec2 maxSize(float(windowWidth) * 0.5f, float(windowHeight) * 0.4f);
+    ImGui::SetNextWindowSizeConstraints(minSize, maxSize);
+
+    ImGui::SetNextWindowPos(ui_hide ? ImVec2(-1000.f, -1000.f) : ImVec2(0.0f, 0.0f));
+
+    ImGui::Begin("Control Panel", 0, windowFlags);
+    ImGui::SetWindowFontScale(1);
+
+    ImGui::Text("Press H to hide GUI completely.");
+    if (ImGui::IsKeyPressed('H'))
+    {
+        ui_hide = !ui_hide;
+    }
+
+    ImGui::Separator();
+
+    ImGui::SliderInt("Iterations", &ui_iterations, 1, startupIterations);
+
+    ImGui::SliderInt("A Trous Iters", &ui_atrousIterations, 0, 10);
+    ImGui::SliderFloat("Color Weight", &ui_colorWeight, 0.0f, 10.0f);
+    ImGui::SliderFloat("Normal Weight", &ui_normalWeight, 0.0f, 10.0f);
+    ImGui::SliderFloat("Position Weight", &ui_positionWeight, 0.0f, 10.0f);
+
+    ImGui::Separator();
+
+    ImGui::Checkbox("Show GBuffer", &ui_showGbuffer); ImGui::SameLine();
+    ImGui::RadioButton("t", &ui_gBufferType, 0); ImGui::SameLine();
+    ImGui::RadioButton("position", &ui_gBufferType, 1); ImGui::SameLine();
+    ImGui::RadioButton("normal", &ui_gBufferType, 2);
+
+    ImGui::Separator();
+
+    ImGui::Checkbox("Denoise", &ui_denoise);  
+    ImGui::SameLine(); ImGui::Dummy(ImVec2(30.0f, 0.0f)); ImGui::SameLine();
+
+    if (ImGui::Button("Save image and exit"))
+    {
+        ui_saveAndExit = true;
+    }
+
+    ImGui::End();
+
+    ImGui::Render();
+    ImGui_ImplOpenGL3_RenderDrawData(ImGui::GetDrawData());
+}
+
+void mainLoop()
 {
     while (!glfwWindowShouldClose(window))
     {
         glfwPollEvents();
         runCuda();
-      
+
         string title = "CIS565 Path Tracer | " + utilityCore::convertIntToString(iteration) + " Iterations";
         glfwSetWindowTitle(window, title.c_str());
 
@@ -184,7 +263,13 @@ void mainLoop()
         glClear(GL_COLOR_BUFFER_BIT);
 
         // VAO, shader program, and texture already bound
-        glDrawElements(GL_TRIANGLES, 6,  GL_UNSIGNED_SHORT, 0);
+        glDrawElements(GL_TRIANGLES, 6, GL_UNSIGNED_SHORT, 0);
+
+        // Draw imgui
+        int display_w, display_h;
+        glfwGetFramebufferSize(window, &display_w, &display_h);
+        drawGui(display_w, display_h);
+
         glfwSwapBuffers(window);
     }
     glfwDestroyWindow(window);

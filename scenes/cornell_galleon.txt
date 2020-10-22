@@ -60,15 +60,15 @@ EMITTANCE   0
 
 // Camera
 CAMERA
-RES         1280 640
+RES         1200 675
 FOVY        45
 ITERATIONS  5000
 DEPTH       8
 FOCALDIST   0
 LENSRADIUS  0
 FILE        cornell
-EYE         0.0 5 10
-LOOKAT      0 5 -5
+EYE         0.0 5 -230
+LOOKAT      -4 5 -240
 UP          0 1 0
 
 
@@ -124,24 +124,23 @@ SCALE       .01 500 500
 OBJECT 6
 cube
 material 5
-TRANS       0 0 0
+TRANS       0 -2 0
 ROTAT       0 0 0
-SCALE       100 7.5 100
+SCALE       500 10 500
+
+// Mesh front light
+OBJECT 7
+cube
+MATERIAL 4
+TRANS       -4 10 -225
+ROTAT       0 0 0
+SCALE       10 10 .3
 
 // gltf Mesh
-OBJECT 7
+OBJECT 8
 mesh
 ../scenes/galleon/scene.gltf
 MATERIAL 1
-TRANS       -4 5 -5
-ROTAT       0 180 0
+TRANS       -5 5 -240
+ROTAT       0 240 0
 SCALE       0.006 0.006 0.006
-
-
-// Mesh front light
-OBJECT 8
-cube
-MATERIAL 4
-TRANS       -4 10 10
-ROTAT       0 0 0
-SCALE       10 10 .3

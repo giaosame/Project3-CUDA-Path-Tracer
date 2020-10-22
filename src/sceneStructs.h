@@ -142,3 +142,12 @@ enum Wrap
 	MIRRORED_REPEAT = 33648,
 	REPEAT = 10497,
 };
+
+// A simple struct for storing scene geometry information per-pixel.
+// What information might be helpful for guiding a denoising filter?
+struct GBufferPixel 
+{
+	float t;
+	glm::vec3 pos;
+	glm::vec3 nor;
+};
