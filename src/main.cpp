@@ -25,6 +25,7 @@ float ui_colorWeight = 0.45f;
 float ui_normalWeight = 0.35f;
 float ui_positionWeight = 0.2f;
 bool ui_saveAndExit = false;
+int ui_gBufferType = 0;
 
 static bool camchanged = true;
 static float dtheta = 0, dphi = 0;
@@ -168,7 +169,7 @@ void runCuda()
 	
 	if (ui_showGbuffer)
 	{
-		showGBuffer(pbo_dptr);
+		showGBuffer(pbo_dptr, ui_gBufferType);
 	}
 	else if (ui_denoise)
 	{

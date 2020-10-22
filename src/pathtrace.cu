@@ -153,22 +153,35 @@ __global__ void edgeStopping(glm::ivec2 resolution, int atrous_iter, glm::vec3* 
 }
 
 
-__global__ void gbufferToPBO(uchar4* pbo, glm::ivec2 resolution, GBufferPixel* gBuffer) 
+__global__ void gbufferToPBO(uchar4* pbo, glm::ivec2 resolution, GBufferPixel* gBuffer, const int type)
 {
 	int x = (blockIdx.x * blockDim.x) + threadIdx.x;
 	int y = (blockIdx.y * blockDim.y) + threadIdx.y;
 
-	if (x < resolution.x && y < resolution.y) {
+	if (x < resolution.x && y < resolution.y)
+	{
 		int index = x + (y * resolution.x);
-		float timeToIntersect = gBuffer[index].t * 255.f;
-		
+
 		pbo[index].w = 0;
-		pbo[index].x = abs(gBuffer[index].nor.x) * 255.f;
-		pbo[index].y = abs(gBuffer[index].nor.y) * 255.f;
-		pbo[index].z = abs(gBuffer[index].nor.z) * 255.f;
-		/*pbo[index].x = abs(gBuffer[index].pos.x) * 25.f;
-		pbo[index].y = abs(gBuffer[index].pos.y) * 25.f;
-		pbo[index].z = abs(gBuffer[index].pos.z) * 25.f;*/
+		if (type == 0)
+		{
+			float timeToIntersect = gBuffer[index].t * 255.f;
+			pbo[index].x = timeToIntersect;
+			pbo[index].y = timeToIntersect;
+			pbo[index].z = timeToIntersect;
+		}
+		else if (type == 1)
+		{
+			pbo[index].x = abs(gBuffer[index].pos.x) * 25.f;
+			pbo[index].y = abs(gBuffer[index].pos.y) * 25.f;
+			pbo[index].z = abs(gBuffer[index].pos.z) * 25.f;
+		}
+		else
+		{
+			pbo[index].x = abs(gBuffer[index].nor.x) * 255.f;
+			pbo[index].y = abs(gBuffer[index].nor.y) * 255.f;
+			pbo[index].z = abs(gBuffer[index].nor.z) * 255.f;
+		}
 	}
 }
 
@@ -926,7 +939,7 @@ void pathtrace(uchar4* pbo, int frame, int iter)
 }
 
 // This kernel "post-processes" the gbuffer/gbuffers into something that you can visualize for debugging.
-void showGBuffer(uchar4* pbo) {
+void showGBuffer(uchar4* pbo, const int type) {
 	const Camera& cam = hst_scene->state.camera;
 	const dim3 blockSize2d(8, 8);
 	const dim3 blocksPerGrid2d(
@@ -934,7 +947,7 @@ void showGBuffer(uchar4* pbo) {
 		(cam.resolution.y + blockSize2d.y - 1) / blockSize2d.y);
 
 	// Process the gbuffer results and send them to OpenGL buffer for visualization
-	gbufferToPBO << <blocksPerGrid2d, blockSize2d >> > (pbo, cam.resolution, dev_gBuffer);
+	gbufferToPBO << <blocksPerGrid2d, blockSize2d >> > (pbo, cam.resolution, dev_gBuffer, type);
 }
 
 void showImage(uchar4* pbo, int iter, bool denoised)
@@ -971,7 +984,7 @@ void denoise(uchar4* pbo, int iter, int atrous_total_num_iters, float c_phi, flo
 	for (int i = 0; i < atrous_total_num_iters; i++)
 	{
 		edgeStopping << <blocksPerGrid2d, blockSize2d >> > (cam.resolution, i, dev_temp_image, dev_denoised_image,
-			dev_gBuffer, dev_atrous_filter, c_phi, n_phi, p_phi);
+															dev_gBuffer, dev_atrous_filter, c_phi, n_phi, p_phi);
 
 		std::swap(dev_temp_image, dev_denoised_image);
 		c_phi /= 2; n_phi /= 2; p_phi /= 2;
